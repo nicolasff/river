@@ -10,9 +10,6 @@ void
 http_dispatch_meta_connect(struct evhttp_request *ev, void *data);
 
 void
-http_dispatch_meta_disconnect(struct evhttp_request *ev, void *data);
-
-void
 http_dispatch_meta_publish(struct evhttp_request *ev, void *nil);
 
 void
@@ -23,6 +20,12 @@ http_dispatch_meta_unsubscribe(struct evhttp_request *ev, void *data);
 
 void
 http_dispatch_meta_newchannel(struct evhttp_request *ev, void *data);
+
+void
+http_dispatch_close(struct evhttp_connection *evcon, void *data);
+
+void
+http_init();
 
 #endif /* COMETD_HTTP_DISPATCH_H */
 

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <readline/readline.h>
 
 #include "server.h"
 #include "user.h"
@@ -21,9 +22,9 @@ main(int argc, char *argv[]) {
 	user_init();
 	server_start(NB_WORKERS, 1234, 7777);
 
-
-
-	while(1);
+	while(1) {
+		readline("> ");
+	}
 
 	return EXIT_SUCCESS;
 }

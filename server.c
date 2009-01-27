@@ -14,13 +14,14 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "socket.h"
 #include "udp.h"
 #include "http_dispatch.h"
 #include "server.h"
 #include "user.h"
-#include "fd.h"
+#include "connection.h"
 
 #if 0
 char preload[2000];
@@ -64,7 +65,7 @@ client_data_available(int fd, short event, void *arg) {
 	long uid;
 	struct p_user *user;
 	struct evbuffer *buffer;
-	struct p_fd *u_fd;
+	struct p_connection *u_connection;
 
 	struct thread_info *self = arg;
 	if(fd != self->pipe[0] || event != EV_READ) {
@@ -72,7 +73,10 @@ client_data_available(int fd, short event, void *arg) {
 	}
 	/* read data from the pipe */
 	read(fd, &uid, sizeof(uid));
-	printf("thread %d! received [%ld] written in %d\n", self->id, uid, self->pipe[1]);
+	/*
+	printf("thread %d! received [%ld] written in %d\n", 
+		self->id, uid, self->pipe[1]);
+	*/
 
 	/* find corresponding user */
 	user = user_find(uid);
@@ -83,18 +87,18 @@ client_data_available(int fd, short event, void *arg) {
 	/* locking user here. */
 	pthread_mutex_lock(&(user->lock));
 
-		printf("locked user %ld\n", user->uid);
 		/* send message to user */
 		buffer = evbuffer_new();
 		evbuffer_add_printf(buffer, "hello\n");
-		u_fd = user->fds;
-		user->fds = user->fds->next;
-		evhttp_send_reply(u_fd->ev, 200, "OK", buffer);
-		fd_free(u_fd);
+		u_connection = user->connections;
+		user->connections = user->connections->next;
+
+		/* send data */
+		evhttp_send_reply_chunk(u_connection->ev, buffer);
+		evhttp_send_reply_end(u_connection->ev);
 		evbuffer_free(buffer);
 
 	pthread_mutex_unlock(&(user->lock));
-	printf("unlocked user %ld. user->fds=%p\n", user->uid, user->fds);
 }
 
 void*
@@ -109,6 +113,7 @@ thread_start(void *arg) {
 
 	/* create communication pipe */
 	pipe(self->pipe);
+	fcntl(self->pipe[1], F_SETFL, O_NONBLOCK);
 	event_set(&cx_ev, self->pipe[0], EV_READ | EV_PERSIST,
 			client_data_available, self);
 	event_base_set(self->ev_base, &cx_ev);
@@ -124,9 +129,6 @@ thread_start(void *arg) {
 	evhttp_set_cb(self->ev_http, "/meta/connect", 
 			http_dispatch_meta_connect, self);
 
-	evhttp_set_cb(self->ev_http, "/meta/disconnect",
-			http_dispatch_meta_disconnect, self);
-
 	evhttp_set_cb(self->ev_http, "/meta/publish", 
 			http_dispatch_meta_publish, self);
 
@@ -139,7 +141,7 @@ thread_start(void *arg) {
 	evhttp_set_cb(self->ev_http, "/meta/newchannel",
 			http_dispatch_meta_newchannel, self);
 
-	evhttp_set_gencb(self->ev_http, callback, self);
+	/*evhttp_set_gencb(self->ev_http, callback, self);*/
 
 	event_base_dispatch(self->ev_base);
 

@@ -7,7 +7,7 @@ struct p_user {
 	long uid;
 	char * sid;
 	long seq;
-	struct p_fd *fds;
+	struct p_connection *connections;
 	pthread_mutex_t lock;
 };
 

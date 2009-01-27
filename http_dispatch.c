@@ -11,10 +11,9 @@
 
 #include "http_dispatch.h"
 #include "user.h"
-#include "fd.h"
+#include "connection.h"
 #include "channel.h"
 #include "server.h"
-
 
 static void
 send_reply(struct evhttp_request *ev, int error) {
@@ -99,6 +98,7 @@ http_dispatch_meta_connect(struct evhttp_request *ev, void *arg) {
 	int success = 0;
 	struct p_user *user;
 	long l_uid;
+	struct p_connection *connection = NULL;
 
 	printf("\nMETA: %s (thread id=%d)\n", __FUNCTION__, self->id);
 
@@ -125,24 +125,31 @@ http_dispatch_meta_connect(struct evhttp_request *ev, void *arg) {
 	if(success) {
 		/* register the EV with the user */
 		/* TODO: lock user globally. */
-		struct p_fd *fd = fd_new(self->pipe[1], ev);
-		fd->next = user->fds;
-		user->fds = fd;
-		printf("user=%p, user->fds=%p\n", user, user->fds);
+		connection = connection_new(self->pipe[1], ev);
+		connection->user = user;
+		connection->next = user->connections;
+		user->connections = connection;
+		printf("user=%p, user->connections=%p\n", user, user->connections);
 	} else {
 		send_reply(ev, 403);
 	}
 
 	/* cleanup */ 
 	evhttp_clear_headers(&get);
-}
+	if(success) {
+		struct evbuffer *padding;
+		padding = evbuffer_new();
 
-void
-http_dispatch_meta_disconnect(struct evhttp_request *ev, void *data) {
-	(void)ev;
-	(void)data;
+		/* send whitespace padding */
+		evhttp_send_reply_start(ev, 200, "OK");
+		evbuffer_add_printf(padding, "\n");
+		evhttp_send_reply_chunk(ev, padding);
+		evbuffer_free(padding);
 
-	printf("\nMETA: %s\n", __FUNCTION__);
+		/* set "connection closed" callback */
+		evhttp_connection_set_closecb(ev->evcon, 
+				http_dispatch_close, connection);
+	}
 }
 
 /**
@@ -157,7 +164,8 @@ http_dispatch_meta_publish(struct evhttp_request *ev, void *nil) {
 	const char *name, *data;
 	struct p_channel *channel;
 	struct p_channel_user *cu;
-	struct p_fd *fd;
+	struct p_connection *connection;
+	struct p_message *message;
 
 	printf("\nMETA: %s\n", __FUNCTION__);
 
@@ -175,6 +183,7 @@ http_dispatch_meta_publish(struct evhttp_request *ev, void *nil) {
 		return;
 	}
 
+
 	for(cu = channel->users; cu; cu = cu->next) {
 
 		struct p_user *user = user_find(cu->uid);
@@ -185,13 +194,26 @@ http_dispatch_meta_publish(struct evhttp_request *ev, void *nil) {
 
 		/* locking user here */
 		pthread_mutex_lock(&(user->lock));
-			printf("publish locked user %ld\n", user->uid);
-			for(fd = user->fds; fd; fd = fd->next) {
-				printf("Send reply %s in pipe %d\n", data, fd->fd);
-				write(fd->fd, &(user->uid), sizeof(user->uid));
+			/*printf("publish locked user %ld\n", user->uid);*/
+			for(connection = user->connections; connection; 
+					connection = connection->next) {
+				/*
+				printf("Send reply %s in pipe %d\n", data, connection->fd);
+				*/
+
+				message = message_new(data, 1+strlen(data));
+				if(connection->inbox_last) {
+					connection->inbox_last->next = message;
+					connection->inbox_last = message;
+				} else {
+					connection->inbox_first = message;
+					connection->inbox_last = message;
+				}
+
+				write(connection->fd, &(user->uid), sizeof(user->uid));
 			}
 		pthread_mutex_unlock(&(user->lock));
-		printf("publish unlocked user %ld\n", user->uid);
+		/*printf("publish unlocked user %ld\n", user->uid);*/
 		
 	}
 
@@ -303,4 +325,26 @@ http_dispatch_meta_newchannel(struct evhttp_request *ev, void *data) {
 	/* cleanup */ 
 	evhttp_clear_headers(&get);
 }
+
+
+void
+http_dispatch_close(struct evhttp_connection *evcon, void *data) {
+	struct p_connection *cx_del = data, *cx_prev = NULL;
+	struct p_user *user = cx_del->user;
+
+	(void)evcon;
+
+	printf("\nCLOSE: BYE user %ld\n", user->uid);
+
+	pthread_mutex_lock(&user->lock);
+		for(cx_prev = user->connections; cx_prev; cx_prev = cx_prev->next) {
+			if(cx_prev && cx_prev->next == cx_del) {
+				cx_prev->next = cx_prev->next->next;
+				break;
+			}
+		}
+		connection_free(cx_del);
+	pthread_mutex_unlock(&user->lock);
+}
+
 
