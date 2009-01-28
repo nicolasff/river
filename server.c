@@ -22,6 +22,7 @@
 #include "server.h"
 #include "user.h"
 #include "connection.h"
+#include "message.h"
 
 #if 0
 char preload[2000];
@@ -62,43 +63,72 @@ callback(struct evhttp_request *ev, void *arg) {
 void
 client_data_available(int fd, short event, void *arg) {
 
-	long uid;
 	struct p_user *user;
-	struct evbuffer *buffer;
 	struct p_connection *u_connection;
+	struct p_message *m;
 
 	struct thread_info *self = arg;
 	if(fd != self->pipe[0] || event != EV_READ) {
 		return;
 	}
-	/* read data from the pipe */
-	read(fd, &uid, sizeof(uid));
-	/*
-	printf("thread %d! received [%ld] written in %d\n", 
-		self->id, uid, self->pipe[1]);
-	*/
 
+	/* read data from the pipe */
+	read(fd, &u_connection, sizeof(u_connection));
+	user = u_connection->user;
+	
+	
+	/*
+	printf("thread %d! received [%p] written in %d\n", 
+		self->id, u_connection, self->pipe[1]);
+	*/
+	
+	
 	/* find corresponding user */
-	user = user_find(uid);
 	if(!user) {
 		return;
 	}
 	
 	/* locking user here. */
+	/*
+	printf("locking user %ld\n", user->uid);
+	*/
 	pthread_mutex_lock(&(user->lock));
 
-		/* send message to user */
-		buffer = evbuffer_new();
-		evbuffer_add_printf(buffer, "hello\n");
-		u_connection = user->connections;
-		user->connections = user->connections->next;
+		for(m = u_connection->inbox_first; m;) {
+			struct p_message *m_next = m->next;
+			/* send data */
+			/*
+			printf("send data to %p\n", u_connection->ev);
+			*/
+			evhttp_send_reply_chunk(u_connection->ev, m->data);
 
-		/* send data */
-		evhttp_send_reply_chunk(u_connection->ev, buffer);
+			message_free(m);
+
+			m = m_next;
+		}
 		evhttp_send_reply_end(u_connection->ev);
-		evbuffer_free(buffer);
+
+		/* remove connection from user. */
+		if(u_connection == user->connections) {	/* del first */
+			user->connections = user->connections->next;
+		} else {
+			struct p_connection *cx_prev;
+			for(cx_prev = user->connections; cx_prev; cx_prev = cx_prev->next) {
+				if(cx_prev && cx_prev->next == u_connection) {
+					cx_prev->next = cx_prev->next->next;
+					break;
+				}
+			}
+		}
+		connection_free(u_connection);
+		/*	
+		u_connection->inbox_first = u_connection->inbox_last = NULL;
+		*/
 
 	pthread_mutex_unlock(&(user->lock));
+	/*
+	printf("unlocked user %ld\n", user->uid);
+	*/
 }
 
 void*
@@ -118,7 +148,9 @@ thread_start(void *arg) {
 			client_data_available, self);
 	event_base_set(self->ev_base, &cx_ev);
 	err = event_add(&cx_ev, NULL);
+	/*
 	printf("thread %d listening to pipe %d: err=%d\n", self->id, self->pipe[0], err);
+	*/
 
 	err = evhttp_accept_socket(self->ev_http, self->fd);
 
