@@ -1,7 +1,23 @@
-Parameters:
-	
-	-h host
-	-P port
-	-i interface port
-	-t TCP interface
-	-u UDP interface
+1 - run `make clean all'
+
+
+2 - run ./cometd
+
+
+3 - In a terminal, run:
+curl "http://127.0.0.1:1234/meta/authenticate?uid=1729&sid=my-secret-sid"
+curl "http://127.0.0.1:1234/meta/newchannel?name=public-channel&key=secret-key-used-to-create-channels"
+curl "http://127.0.0.1:1234/meta/subscribe?name=public-channel&uid=1729&sid=my-secret-sid"
+curl "http://127.0.0.1:1234/meta/connect?uid=1729&sid=my-secret-sid"
+
+The last HTTP call (/meta/connect) is blocking.
+
+
+4 - And then, in another terminal:
+curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of-comet"
+
+
+5 - The /meta/connect call returns, with the data published in the channel.
+
+That's it for the proof of concept!
+
