@@ -19,9 +19,6 @@ struct thread_info {
 
 struct thread_info	*worker_threads;
 
-void
-callback(struct evhttp_request *ev, void *data);
-
 int
 server_start(short nb_workers, short port, short udp_port);
 

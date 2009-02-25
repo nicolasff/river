@@ -24,42 +24,6 @@
 #include "connection.h"
 #include "message.h"
 
-#if 0
-char preload[2000];
-#endif
-
-void
-handle_client(struct evhttp_request *ev) {
-
-#if 0
-	int webkit = 0;
-#endif
-	struct evbuffer *buffer;
-	buffer = evbuffer_new();
-
-	evhttp_send_reply_start(ev, HTTP_OK, "OK");
-#if 0
-	if(webkit) {
-		evbuffer_add(buffer, preload, sizeof(preload)-1);
-	}
-#endif
-	evbuffer_add_printf(buffer, "lol('hello');\n");
-	evhttp_send_reply_chunk(ev, buffer);
-	evhttp_send_reply_end(ev);
-
-	evbuffer_free(buffer);
-}
-
-void
-callback(struct evhttp_request *ev, void *arg) {
-
-	struct thread_info *self = arg;
-//	printf("thread %d handling a client\n", self->id);
-	self->clients++;
-	handle_client(ev);
-	return ;
-}
-
 void
 client_data_available(int fd, short event, void *arg) {
 
@@ -172,8 +136,6 @@ thread_start(void *arg) {
 
 	evhttp_set_cb(self->ev_http, "/meta/newchannel",
 			http_dispatch_meta_newchannel, self);
-
-	/*evhttp_set_gencb(self->ev_http, callback, self);*/
 
 	event_base_dispatch(self->ev_base);
 
