@@ -24,6 +24,10 @@
 #include "connection.h"
 #include "message.h"
 
+/**
+ * A message has been sent to a user, and a thread woke us up.
+ * Let's see which client is affected.
+ */
 void
 client_data_available(int fd, short event, void *arg) {
 
@@ -36,34 +40,21 @@ client_data_available(int fd, short event, void *arg) {
 		return;
 	}
 
-	/* read data from the pipe */
+	/* read data from the pipe, a raw pointer to p_connection. */
 	read(fd, &u_connection, sizeof(u_connection));
-	user = u_connection->user;
-	
-	
-	/*
-	printf("thread %d! received [%p] written in %d\n", 
-		self->id, u_connection, self->pipe[1]);
-	*/
-	
-	
+
 	/* find corresponding user */
+	user = u_connection->user;
 	if(!user) {
 		return;
 	}
 	
 	/* locking user here. */
-	/*
-	printf("locking user %ld\n", user->uid);
-	*/
 	pthread_mutex_lock(&(user->lock));
 
 		for(m = u_connection->inbox_first; m;) {
 			struct p_message *m_next = m->next;
 			/* send data */
-			/*
-			printf("send data to %p\n", u_connection->ev);
-			*/
 			evhttp_send_reply_chunk(u_connection->ev, m->data);
 
 			message_free(m);
@@ -85,14 +76,9 @@ client_data_available(int fd, short event, void *arg) {
 			}
 		}
 		connection_free(u_connection);
-		/*	
-		u_connection->inbox_first = u_connection->inbox_last = NULL;
-		*/
 
+	/* unlock user */
 	pthread_mutex_unlock(&(user->lock));
-	/*
-	printf("unlocked user %ld\n", user->uid);
-	*/
 }
 
 void*

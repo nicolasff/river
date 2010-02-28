@@ -7,6 +7,9 @@
 #include "udp.h"
 #include "socket.h"
 
+/**
+ * Creates a UDP server for back-end com
+ */
 int
 udp_create_socket(const char *host, const short port, int *fd) {
 

@@ -4,6 +4,14 @@
 struct evhttp_request;
 struct p_user;
 
+/**
+ * A connection is a user's inbox.
+ *
+ * TODO: move this to “user”? This would make more sense, as we're currently 
+ * duplicating messages quite a lot.
+ * 
+ */
+
 struct p_connection {
 
 	int fd;

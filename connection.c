@@ -18,6 +18,7 @@ connection_new(int fd, struct evhttp_request *ev) {
 void
 connection_free(struct p_connection *p) {
 
+	/* TODO: is that enough? who's cleaning the list? */
 	free(p);
 }
 

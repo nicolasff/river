@@ -6,6 +6,9 @@
 
 #include <glib.h>
 
+/**
+ * This is the hash table of all channels.
+ */
 GHashTable *__channels = NULL;
 
 void
@@ -30,6 +33,7 @@ channel_new(const char *name) {
 		return NULL;
 	}
 
+	/* TODO: probably put a lock here. */
 	g_hash_table_insert(__channels, GINT_TO_POINTER(g_str_hash(name)),
 			channel);
 
@@ -50,7 +54,7 @@ channel_free(struct p_channel * p) {
 	free(p);
 }
 
-/* TODO: make this faster than O(n) */
+/* TODO: make this faster than O(n), by using a uid → user HT in p_channel. */
 int
 channel_has_user(struct p_channel *channel, struct p_user *user) {
 

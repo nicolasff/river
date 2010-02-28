@@ -8,7 +8,9 @@
 #include <syslog.h>
 #include <string.h>
 
-
+/**
+ * Sets up a non-blocking socket
+ */
 int
 socket_setup(int fd) {
 	int ret, reuse = 1;

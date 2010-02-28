@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <readline/readline.h>
+#include <unistd.h>
 
 #include "server.h"
 #include "user.h"
@@ -13,17 +13,12 @@ main(int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
 
-#if 0
-	memset(preload, '\n', sizeof(preload)-1);
-	preload[sizeof(preload)-1] = 0;
-#endif
-
 	channel_init();
 	user_init();
 	server_start(NB_WORKERS, 1234, 7777);
 
 	while(1) {
-		readline("> ");
+		sleep(60);
 	}
 
 	return EXIT_SUCCESS;

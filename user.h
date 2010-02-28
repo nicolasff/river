@@ -3,11 +3,15 @@
 
 struct evhttp_request;
 
+/**
+ * A user, with several connections.
+ */
+
 struct p_user {
-	long uid;
-	char * sid;
+	long uid; /* user id, unique to this user */
+	char * sid; /* session id */
 	long seq;
-	struct p_connection *connections;
+	struct p_connection *connections; /* list of connections */
 	pthread_mutex_t lock;
 };
 

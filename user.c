@@ -5,6 +5,9 @@
 
 #include "user.h"
 
+/**
+ * Static table containing all users.
+ */
 static GHashTable *__users = NULL;
 
 struct p_user *
@@ -32,9 +35,13 @@ user_init() {
 
 void
 user_save(struct p_user *p) {
+	// TODO: lock? I don't think GLib hash tables have an atomic insert.
 	g_hash_table_insert(__users, GINT_TO_POINTER(p->uid), p);
 }
 
+/**
+ * Find a user from his UID.
+ */
 struct p_user *
 user_find(long uid) {
 
