@@ -14,6 +14,7 @@ message_new(const char *data, size_t length) {
 
 	ret->data = evbuffer_new();
 	evbuffer_add(ret->data, data, length);
+	evbuffer_add(ret->data, "\r\n", 2);
 
 	return ret;
 }

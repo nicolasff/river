@@ -5,7 +5,7 @@
 #include "server.h"
 #include "user.h"
 #include "channel.h"
-#define NB_WORKERS	1
+#define NB_WORKERS	8
 
 int
 main(int argc, char *argv[]) {

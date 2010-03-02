@@ -61,9 +61,11 @@ client_data_available(int fd, short event, void *arg) {
 
 			m = m_next;
 		}
-		evhttp_send_reply_end(u_connection->ev);
+		u_connection->inbox_first = NULL;
+		u_connection->inbox_last = NULL;
 
 		/* remove connection from user. */
+#if 0
 		if(u_connection == user->connections) {	/* del first */
 			user->connections = user->connections->next;
 		} else {
@@ -76,6 +78,7 @@ client_data_available(int fd, short event, void *arg) {
 			}
 		}
 		connection_free(u_connection);
+#endif
 
 	/* unlock user */
 	pthread_mutex_unlock(&(user->lock));

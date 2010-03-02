@@ -343,6 +343,7 @@ http_dispatch_meta_newchannel(struct evhttp_request *ev, void *data) {
  */
 void
 http_dispatch_close(struct evhttp_connection *evcon, void *data) {
+	printf("http_dispatch_close\n");
 #if 0
 	struct p_connection *cx_del = data, *cx_prev = NULL;
 	struct p_user *user = cx_del->user;
