@@ -15,6 +15,7 @@
 #include "channel.h"
 #include "server.h"
 #include "message.h"
+#if 0
 
 static void
 send_reply(struct evhttp_request *ev, int error) {
@@ -106,7 +107,6 @@ http_dispatch_meta_connect(struct evhttp_request *ev, void *arg) {
 	int success = 0;
 	struct p_user *user;
 	long l_uid;
-	struct p_connection *connection = NULL;
 
 	/* get (uid, sid) parameters */
 	uri = evhttp_request_uri(ev);
@@ -178,7 +178,6 @@ http_dispatch_meta_publish(struct evhttp_request *ev, void *nil) {
 	const char *name, *data;
 	struct p_channel *channel;
 	struct p_channel_user *cu;
-	struct p_connection *connection;
 	struct p_message *message;
 
 	/* TODO: get (uid, sid) parameters from the sender, authenticate him */
@@ -344,31 +343,10 @@ http_dispatch_meta_newchannel(struct evhttp_request *ev, void *data) {
 void
 http_dispatch_close(struct evhttp_connection *evcon, void *data) {
 	printf("http_dispatch_close\n");
-#if 0
-	struct p_connection *cx_del = data, *cx_prev = NULL;
-	struct p_user *user = cx_del->user;
 
-	(void)evcon;
-
-	
-	printf("\nCLOSE: BYE user %ld (ev=%p)\n", user->uid, cx_del->ev);
-	pthread_mutex_lock(&user->lock);
-		if(cx_del == user->connections) {	/* del first */
-			user->connections = user->connections->next;
-		} else {
-			for(cx_prev = user->connections; cx_prev; cx_prev = cx_prev->next) {
-				if(cx_prev && cx_prev->next == cx_del) {
-					cx_prev->next = cx_prev->next->next;
-					break;
-				}
-			}
-		}
-		connection_free(cx_del);
-	pthread_mutex_unlock(&user->lock);
-#else
 	(void)evcon;
 	(void)data;
-#endif
 }
+#endif
 
 

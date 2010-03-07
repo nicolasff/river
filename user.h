@@ -1,16 +1,16 @@
 #ifndef COMETD_USER_H
 #define COMETD_USER_H
 
-struct evhttp_request;
+struct p_message;
 
 /**
- * A user, with several connections.
+ * A user, with uid + sid + lock.
  */
 struct p_user {
 	long uid; /* user id, unique to this user */
 	char * sid; /* session id */
-	long seq;
-	struct p_connection *connections; /* list of connections */
+	struct p_message *inbox;
+
 	pthread_mutex_t lock;
 };
 

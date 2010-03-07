@@ -15,7 +15,8 @@ main(int argc, char *argv[]) {
 
 	channel_init();
 	user_init();
-	server_start(NB_WORKERS, 1234);
+	// server_start(NB_WORKERS, 1234);
+	server_run(NB_WORKERS, 1234);
 
 	while(1) {
 		sleep(60);

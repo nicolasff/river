@@ -17,11 +17,11 @@
 #include <fcntl.h>
 
 #include "socket.h"
-#include "http_dispatch.h"
 #include "server.h"
-#include "user.h"
-#include "connection.h"
-#include "message.h"
+#include "queue.h"
+#include "http-parser/http_parser.h"
+
+#if 0
 
 /**
  * A message has been sent to a user, and a thread woke us up.
@@ -31,7 +31,6 @@ void
 client_data_available(int fd, short event, void *arg) {
 
 	struct p_user *user;
-	struct p_connection *u_connection;
 	struct p_message *m;
 
 	struct thread_info *self = arg;
@@ -51,6 +50,7 @@ client_data_available(int fd, short event, void *arg) {
 	/* locking user here. */
 	pthread_mutex_lock(&(user->lock));
 
+		/* sending data. */
 		for(m = u_connection->inbox_first; m;) {
 			struct p_message *m_next = m->next;
 			/* send data */
@@ -63,118 +63,253 @@ client_data_available(int fd, short event, void *arg) {
 		u_connection->inbox_first = NULL;
 		u_connection->inbox_last = NULL;
 
-		/* remove connection from user. */
-#if 0
-		if(u_connection == user->connections) {	/* del first */
-			user->connections = user->connections->next;
-		} else {
-			struct p_connection *cx_prev;
-			for(cx_prev = user->connections; cx_prev; cx_prev = cx_prev->next) {
-				if(cx_prev && cx_prev->next == u_connection) {
-					cx_prev->next = cx_prev->next->next;
-					break;
-				}
-			}
-		}
-		connection_free(u_connection);
-#endif
-
 	/* unlock user */
 	pthread_mutex_unlock(&(user->lock));
 }
 
-void*
-thread_start(void *arg) {
-	struct thread_info *self = arg;
-	int err;
-	struct event cx_ev;
+#endif
 
-	/* initialize libevent in the thread */
-	self->ev_base = event_init ();
-	self->ev_http = evhttp_new(self->ev_base);
+/**
+ * Dispatch based on the path
+ */
+int
+http_dispatch(struct http_request *req) {
 
-	/* create communication pipe */
-	pipe(self->pipe);
-	fcntl(self->pipe[1], F_SETFL, O_NONBLOCK);
-	event_set(&cx_ev, self->pipe[0], EV_READ | EV_PERSIST,
-			client_data_available, self);
-	event_base_set(self->ev_base, &cx_ev);
-	err = event_add(&cx_ev, NULL);
-	/*
-	printf("thread %d listening to pipe %d: err=%d\n", self->id, self->pipe[0], err);
-	*/
+	// printf("dispatch, req->path = [%s]\n", req->path);
+	if(req->path_len == 18 && 0 == strncmp(req->path, "/meta/authenticate", 18)) {
+	//	return http_dispatch_meta_authenticate(&req);
+	} else if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/connect", 13)) {
+	//	return http_dispatch_meta_connect(&req);
+	} else if(req->path_len == 15 && 0 == strncmp(req->path, "/meta/subscribe", 15)) {
+	//	return http_dispatch_meta_subscribe(&req);
+	} else if(req->path_len == 17 && 0 == strncmp(req->path, "/meta/unsubscribe", 17)) {
+	//	return http_dispatch_meta_unsubscribe(&req);
+	} else if(req->path_len == 16 && 0 == strncmp(req->path, "/meta/newchannel", 16)) {
+	//	return http_dispatch_meta_newchannel(&req);
+	} 
 
-	err = evhttp_accept_socket(self->ev_http, self->fd);
+	return -1;
+}
 
-	/* set meta callbacks */
-	evhttp_set_cb(self->ev_http, "/meta/authenticate", 
-			http_dispatch_meta_authenticate, self);
+/**
+ * Copy the query string
+ */
+int
+http_parser_onquerystring(http_parser *parser, const char *at, size_t len) {
 	
-	evhttp_set_cb(self->ev_http, "/meta/connect", 
-			http_dispatch_meta_connect, self);
+	struct http_request *req = parser->data;
+	req->qs = calloc(1+len, 1);
+	memcpy(req->qs, at, len);
+	req->qs_len = len;
 
-	evhttp_set_cb(self->ev_http, "/meta/publish", 
-			http_dispatch_meta_publish, self);
+	printf("qs=[%s]\n", req->qs);
+	
+	const char *p = at;
 
-	evhttp_set_cb(self->ev_http, "/meta/subscribe",
-			http_dispatch_meta_subscribe, self);
+	while(1) {
+		char *eq, *amp, *key, *val;
+		size_t key_len, val_len;
 
-	evhttp_set_cb(self->ev_http, "/meta/unsubscribe",
-			http_dispatch_meta_unsubscribe, self);
+		eq = memchr(p, '=', p - at + len);
+		if(!eq) break;
 
-	evhttp_set_cb(self->ev_http, "/meta/newchannel",
-			http_dispatch_meta_newchannel, self);
+		key_len = eq - p;
+		key = calloc(1 + key_len, 1);
+		memcpy(key, p, key_len);
+		printf("key=[%s](%lu)\n", key, key_len);
 
-	event_base_dispatch(self->ev_base);
+		p = eq + 1;
+		if(!*p) {
+			free(key);
+			break;
+		}
+
+		amp = memchr(p, '&', p - at + len);
+		if(!amp) break;
+
+		val_len = amp - p;
+		val = calloc(1 + val_len, 1);
+		memcpy(val, p, val_len);
+
+		printf("key=[%s](%lu), val=[%s](%lu)\n",
+			key, key_len, val, val_len);
+
+		p = amp + 1;
+
+		free(key);
+		free(val);
+	}
+
+	return len;
+}
+
+/**
+ * Copy the path
+ */
+int
+http_parser_onpath(http_parser *parser, const char *at, size_t len) {
+
+	struct http_request *req = parser->data;
+	req->path = calloc(1+len, 1);
+	memcpy(req->path, at, len);
+	req->path_len = len;
+
+	return len;
+}
+
+void *
+worker_main(void *ptr) {
+
+	int ret;
+	struct worker_info *wi = ptr;
+	void *raw;
+	http_parser parser;
+	http_parser_settings settings;
+
+	/* setup http parser */
+	memset(&settings, 0, sizeof(http_parser_settings));
+	http_parser_init(&parser, HTTP_REQUEST);
+	settings.on_path = http_parser_onpath;
+	settings.on_query_string = http_parser_onquerystring;
+	settings.on_url = http_parser_onquerystring;
+	settings.on_fragment = http_parser_onquerystring;
+	settings.on_header_field = http_parser_onquerystring;
+	settings.on_header_value = http_parser_onquerystring;
+
+	while(1) {
+		pthread_mutex_t mutex; /* mutex used in pthread_cond_wait */
+		char buffer[64*1024]; 
+		struct http_request req;
+
+		/* init local variables */
+		memset(&req, 0, sizeof(req));
+		pthread_mutex_init(&mutex, NULL);
+
+		/* get client fd */
+		raw = queue_pop(wi->q);
+		if(!raw) {
+			pthread_cond_wait(wi->cond, &mutex);
+			continue;
+		}
+		/* we can read data from the client, now. */
+		req.fd = (int)(long)raw;
+		size_t len = sizeof(buffer), nb_parsed;
+		int nb_read;
+		nb_read = recv(req.fd, buffer, len, 0);
+
+		/* fail, close. */
+		if(nb_read < 0) {
+			close(req.fd); /* byyyee */
+			continue;
+		}
+		buffer[nb_read] = 0;
+
+		/* parse data using @ry’s http-parser library.
+		 * → http://github.com/ry/http-parser/
+		 */
+		parser.data = &req;
+		nb_parsed = http_parser_execute(&parser, settings,
+				buffer, 1+nb_read);
+
+		if(0 && nb_read != (int)nb_parsed) {
+			write(1, buffer, nb_read+1);
+			close(req.fd); /* byyyee */
+			continue;
+		}
+
+		/* dispatch the client depending on the URL path */
+		// http_dispatch(&req);
+
+		free(req.path);
+		req.path = NULL;
+
+		/* reply to the client */
+		ret = write(req.fd, "Hello, world.\r\n", 15);
+		close(req.fd);
+	}
 
 	return NULL;
 }
 
 
+/**
+ * Called when we can read an HTTP request from a client.
+ */
+void
+on_client_data(int fd, short event, void *ptr) {
+	struct dispatcher_info *dispatcher = ptr;
+
+	if(event != EV_READ) {
+		return;
+	}
+
+	/* push fd into queue so that it'll be handled by a worker. */
+	queue_push(dispatcher->q, (void*)(long)fd);
+	pthread_cond_signal(&dispatcher->cond);
+}
+
+/**
+ * Called when we can accept(2) a connection from a client.
+ */
+void
+on_accept(int fd, short event, void *ptr) {
+
+	struct dispatcher_info *di = ptr;
+	int client_fd;
+	struct sockaddr addr;
+	socklen_t addrlen;
+	struct event *ev_client_data;
+
+	if(event != EV_READ) {
+		return;
+	}
+
+	/* accept connection */
+	addrlen = sizeof(addr);
+	client_fd = accept(fd, &addr, &addrlen);
+
+	/* add read event */
+	ev_client_data = calloc(1, sizeof(struct event));
+	event_set(ev_client_data, client_fd, EV_READ, on_client_data, di);
+	event_base_set(di->base, ev_client_data);
+	event_add(ev_client_data, NULL);
+}
+
+/**
+ * Server main function. Doesn't return as long as we're up.
+ */
 int
-server_start(short nb_workers, short port) {
+server_run(short nb_workers, short port) {
 
-	struct sockaddr_in addr;
-	int fd, i, ret;
+	int fd, i;
+	struct event_base *base;
+	struct event ev;
+	struct queue_t *q;
+	struct dispatcher_info di;
+	
+	/* setup queue */
+	q = queue_new();
 
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(port);
-	memset(&(addr.sin_addr), 0, sizeof(addr.sin_addr));
-	addr.sin_addr.s_addr = htonl(0);
+	/* setup socket + libevent */
+	fd = socket_setup(port);
+	base = event_init();
+	event_set(&ev, fd, EV_READ | EV_PERSIST, on_accept, &di);
+	event_base_set(base, &ev);
+	event_add(&ev, NULL); 
 
-	fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	/* now bind & test */
-	if (-1 == fd) {
-		syslog(LOG_ERR, "Socket error: %s\n", strerror(errno));
-		return -1;
-	}
-	ret = socket_setup(fd);
-	if(0 != ret) {
-		return -1;
-	}
-	ret = bind(fd, (struct sockaddr*)&addr, sizeof(addr));
-	if (0 != ret) {
-		syslog(LOG_ERR, "Bind error: %s\n", strerror(errno));
-		return -1;
-	}
-	ret = listen(fd, SOMAXCONN);
-	if (0 != ret) {
-		syslog(LOG_DEBUG, "Listen error: %s\n", strerror(errno));
-		return -1;
-	}
+	/* fill in dispatcher info */
+	di.base = base;
+	di.q = q;
+	pthread_cond_init(&di.cond, NULL);
 
-	event_init();
-
-	worker_threads = calloc(nb_workers, sizeof(struct thread_info));
-
+	/* run workers */
 	for(i = 0; i < nb_workers; ++i) {
-		worker_threads[i].id = i;
-		worker_threads[i].fd = fd;
-		worker_threads[i].clients = 0;
-		pthread_create(&worker_threads[i].thread, NULL, 
-				thread_start, &worker_threads[i]);
+		struct worker_info *wi = calloc(1, sizeof(struct worker_info));
+		wi->q = q;
+		wi->cond = &di.cond;
+		pthread_create(&wi->thread, NULL, worker_main, wi);
 	}
 
-	return 0;
+	return event_base_dispatch(base);
 }
 

@@ -2,7 +2,7 @@
 #define COMETD_SOCKET_H
 
 int
-socket_setup(int fd);
+socket_setup(short port);
 
 #endif /* COMETD_SOCKET_H */
 

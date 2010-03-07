@@ -22,7 +22,6 @@ user_new(long uid, const char * sid) {
 
 	user->uid = uid;
 	user->sid = strdup(sid);
-	user->seq = 1;
 
 	return user;
 }

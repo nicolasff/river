@@ -1,26 +1,38 @@
 #ifndef COMET_TEST_SERVER_H
 #define COMET_TEST_SERVER_H
 
-struct evhttp_request;
-struct evhttp;
 struct event_base;
+struct queue_t;
 
-struct thread_info {
-	int id;
-	int fd;
-	
-	int pipe[2];
-
-	int clients;
-	struct evhttp 		*ev_http;
-	struct event_base	*ev_base;
-	pthread_t 		thread;
+struct worker_info {
+	pthread_t 	thread;
+	pthread_cond_t	*cond;
+	struct queue_t 	*q;
 };
 
-struct thread_info	*worker_threads;
+struct dispatcher_info {
+
+	struct event_base	*base;
+	pthread_cond_t 		cond;
+	struct queue_t 		*q;
+};
+
+struct http_request {
+
+	int fd;
+
+	char *path;
+	size_t path_len;
+
+	char *sid;
+	size_t sid_len;
+
+	char *qs; /* query string */
+	size_t qs_len;
+};
 
 int
-server_start(short nb_workers, short port);
+server_run(short nb_workers, short port);
 
 #endif /* COMET_TEST_SERVER_H */
 

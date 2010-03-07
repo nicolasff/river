@@ -1,6 +1,6 @@
 OUT=cometd
-OBJS=server.o socket.o user.o http_dispatch.o cometd.o connection.o channel.o message.o
-CFLAGS=-O3 -I/opt/libevent/include/ -Wall -Wextra `pkg-config glib-2.0 --cflags` -Ihttp-parser
+OBJS=server.o socket.o user.o http_dispatch.o cometd.o connection.o channel.o message.o queue.o http-parser/http_parser.o
+CFLAGS=-g -ggdb -I/opt/libevent/include/ -Wall -Wextra `pkg-config glib-2.0 --cflags` -Ihttp-parser
 LDFLAGS=-levent -L/opt/libevent/lib -lpthread `pkg-config glib-2.0 --libs`
 
 all: $(OUT)
