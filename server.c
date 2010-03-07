@@ -92,19 +92,20 @@ http_dispatch(struct http_request *req) {
 }
 
 /**
- * Copy the query string
+ * Copy the url
  */
 int
-http_parser_onquerystring(http_parser *parser, const char *at, size_t len) {
+http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 	
 	struct http_request *req = parser->data;
 	req->qs = calloc(1+len, 1);
 	memcpy(req->qs, at, len);
 	req->qs_len = len;
 
-	printf("qs=[%s]\n", req->qs);
-	
-	const char *p = at;
+	const char *p = strchr(at, '?');
+
+	if(!p) return 0;
+	p++;
 
 	while(1) {
 		char *eq, *amp, *key, *val;
@@ -116,7 +117,6 @@ http_parser_onquerystring(http_parser *parser, const char *at, size_t len) {
 		key_len = eq - p;
 		key = calloc(1 + key_len, 1);
 		memcpy(key, p, key_len);
-		printf("key=[%s](%lu)\n", key, key_len);
 
 		p = eq + 1;
 		if(!*p) {
@@ -125,22 +125,31 @@ http_parser_onquerystring(http_parser *parser, const char *at, size_t len) {
 		}
 
 		amp = memchr(p, '&', p - at + len);
-		if(!amp) break;
+		if(amp) {
+			val_len = amp - p;
+		} else {
+			val_len = at + len - p;
+		}
 
-		val_len = amp - p;
 		val = calloc(1 + val_len, 1);
 		memcpy(val, p, val_len);
 
+/*
 		printf("key=[%s](%lu), val=[%s](%lu)\n",
 			key, key_len, val, val_len);
-
-		p = amp + 1;
-
+*/
 		free(key);
 		free(val);
+
+		if(amp) {
+			p = amp + 1;
+		} else {
+			break;
+		}
+
 	}
 
-	return len;
+	return 0;
 }
 
 /**
@@ -153,8 +162,7 @@ http_parser_onpath(http_parser *parser, const char *at, size_t len) {
 	req->path = calloc(1+len, 1);
 	memcpy(req->path, at, len);
 	req->path_len = len;
-
-	return len;
+	return 0;
 }
 
 void *
@@ -168,13 +176,8 @@ worker_main(void *ptr) {
 
 	/* setup http parser */
 	memset(&settings, 0, sizeof(http_parser_settings));
-	http_parser_init(&parser, HTTP_REQUEST);
 	settings.on_path = http_parser_onpath;
-	settings.on_query_string = http_parser_onquerystring;
-	settings.on_url = http_parser_onquerystring;
-	settings.on_fragment = http_parser_onquerystring;
-	settings.on_header_field = http_parser_onquerystring;
-	settings.on_header_value = http_parser_onquerystring;
+	settings.on_url = http_parser_onurl;
 
 	while(1) {
 		pthread_mutex_t mutex; /* mutex used in pthread_cond_wait */
@@ -204,21 +207,22 @@ worker_main(void *ptr) {
 		}
 		buffer[nb_read] = 0;
 
+
 		/* parse data using @ry’s http-parser library.
 		 * → http://github.com/ry/http-parser/
 		 */
+		http_parser_init(&parser, HTTP_REQUEST);
 		parser.data = &req;
 		nb_parsed = http_parser_execute(&parser, settings,
-				buffer, 1+nb_read);
+				buffer, nb_read);
 
-		if(0 && nb_read != (int)nb_parsed) {
-			write(1, buffer, nb_read+1);
+		if(nb_read != (int)nb_parsed) {
 			close(req.fd); /* byyyee */
 			continue;
 		}
 
 		/* dispatch the client depending on the URL path */
-		// http_dispatch(&req);
+		http_dispatch(&req);
 
 		free(req.path);
 		req.path = NULL;
