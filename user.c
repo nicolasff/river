@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <glib.h>
+#include <pthread.h>
 
 #include "user.h"
 
@@ -9,6 +10,7 @@
  * Static table containing all users.
  */
 static GHashTable *__users = NULL;
+pthread_mutex_t users_mutex;
 
 struct p_user *
 user_new(long uid, const char * sid) {
@@ -30,13 +32,15 @@ user_init() {
 
 	if(NULL == __users) {
 		__users = g_hash_table_new_full(NULL, NULL, NULL, NULL);
+		pthread_mutex_init(&users_mutex, NULL);
 	}
 }
 
 void
 user_save(struct p_user *p) {
-	// TODO: lock? I don't think GLib hash tables have an atomic insert.
+	pthread_mutex_lock(&users_mutex);
 	g_hash_table_insert(__users, GINT_TO_POINTER(p->uid), p);
+	pthread_mutex_unlock(&users_mutex);
 }
 
 /**

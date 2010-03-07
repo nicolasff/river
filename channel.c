@@ -5,15 +5,18 @@
 #include "user.h"
 
 #include <glib.h>
+#include <pthread.h>
 
 /**
  * This is the hash table of all channels.
  */
-GHashTable *__channels = NULL;
+static GHashTable *__channels = NULL;
+static pthread_mutex_t channels_lock;
 
 void
 channel_init() {
 	if(NULL == __channels) {
+		pthread_mutex_init(&channels_lock, NULL);
 		__channels = g_hash_table_new_full(NULL, NULL, NULL, NULL);
 	}
 }
@@ -33,9 +36,10 @@ channel_new(const char *name) {
 		return NULL;
 	}
 
-	/* TODO: probably put a lock here. */
+	pthread_mutex_lock(&channels_lock);
 	g_hash_table_insert(__channels, GINT_TO_POINTER(g_str_hash(name)),
 			channel);
+	pthread_mutex_unlock(&channels_lock);
 
 	return channel;
 }
