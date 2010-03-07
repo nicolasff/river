@@ -20,7 +20,7 @@ struct thread_info {
 struct thread_info	*worker_threads;
 
 int
-server_start(short nb_workers, short port, short udp_port);
+server_start(short nb_workers, short port);
 
 #endif /* COMET_TEST_SERVER_H */
 

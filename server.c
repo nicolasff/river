@@ -17,7 +17,6 @@
 #include <fcntl.h>
 
 #include "socket.h"
-#include "udp.h"
 #include "http_dispatch.h"
 #include "server.h"
 #include "user.h"
@@ -133,11 +132,10 @@ thread_start(void *arg) {
 
 
 int
-server_start(short nb_workers, short port, short udp_port) {
+server_start(short nb_workers, short port) {
 
 	struct sockaddr_in addr;
 	int fd, i, ret;
-	int udp;
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
@@ -177,17 +175,6 @@ server_start(short nb_workers, short port, short udp_port) {
 				thread_start, &worker_threads[i]);
 	}
 
-#if 0
-	if(udp_create_socket("0.0.0.0", udp_port, &udp) != 0) {
-		printf("UDP FAIL\n");
-	} else {
-		printf("UDP WIN\n");
-		close(udp);
-	}
-#else 
-	(void)udp_port;
-	(void)udp;
-#endif
 	return 0;
 }
 
