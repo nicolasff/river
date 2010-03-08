@@ -7,6 +7,8 @@ struct p_message;
  * A user, with uid + sid + lock.
  */
 struct p_user {
+	int fd;
+
 	long uid; /* user id, unique to this user */
 	char * sid; /* session id */
 	struct p_message *inbox;

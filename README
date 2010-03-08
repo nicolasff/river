@@ -1,4 +1,14 @@
-TODO: A lot of refactoring in server.c
+TODO
+====
+* A lot of refactoring in server.c and http_dispatch.c
+* A better demo.
+* Lots of cleanup code.
+* Remove dead code
+* Ignore SIGPIPE
+* Remove dead clients
+* Add timeouts
+* Export the HTTP GET parameters in a custom data structure
+* Get rid of GLib. Use antirez’s hash table, from redis? Check how easy it is to extract.
 
 1 - run `make clean all'
 

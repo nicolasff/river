@@ -20,54 +20,7 @@
 #include "server.h"
 #include "queue.h"
 #include "http-parser/http_parser.h"
-
-#if 0
-
-/**
- * A message has been sent to a user, and a thread woke us up.
- * Let's see which client is affected.
- */
-void
-client_data_available(int fd, short event, void *arg) {
-
-	struct p_user *user;
-	struct p_message *m;
-
-	struct thread_info *self = arg;
-	if(fd != self->pipe[0] || event != EV_READ) {
-		return;
-	}
-
-	/* read data from the pipe, a raw pointer to p_connection. */
-	read(fd, &u_connection, sizeof(u_connection));
-
-	/* find corresponding user */
-	user = u_connection->user;
-	if(!user) {
-		return;
-	}
-	
-	/* locking user here. */
-	pthread_mutex_lock(&(user->lock));
-
-		/* sending data. */
-		for(m = u_connection->inbox_first; m;) {
-			struct p_message *m_next = m->next;
-			/* send data */
-			evhttp_send_reply_chunk(u_connection->ev, m->data);
-
-			message_free(m);
-
-			m = m_next;
-		}
-		u_connection->inbox_first = NULL;
-		u_connection->inbox_last = NULL;
-
-	/* unlock user */
-	pthread_mutex_unlock(&(user->lock));
-}
-
-#endif
+#include "http_dispatch.h"
 
 /**
  * Dispatch based on the path
@@ -75,20 +28,19 @@ client_data_available(int fd, short event, void *arg) {
 int
 http_dispatch(struct http_request *req) {
 
-	// printf("dispatch, req->path = [%s]\n", req->path);
 	if(req->path_len == 18 && 0 == strncmp(req->path, "/meta/authenticate", 18)) {
-	//	return http_dispatch_meta_authenticate(&req);
+		return http_dispatch_meta_authenticate(req);
+	} else if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/publish", 13)) {
+		return http_dispatch_meta_publish(req);
 	} else if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/connect", 13)) {
-	//	return http_dispatch_meta_connect(&req);
+		return http_dispatch_meta_connect(req);
 	} else if(req->path_len == 15 && 0 == strncmp(req->path, "/meta/subscribe", 15)) {
-	//	return http_dispatch_meta_subscribe(&req);
-	} else if(req->path_len == 17 && 0 == strncmp(req->path, "/meta/unsubscribe", 17)) {
-	//	return http_dispatch_meta_unsubscribe(&req);
+		return http_dispatch_meta_subscribe(req);
 	} else if(req->path_len == 16 && 0 == strncmp(req->path, "/meta/newchannel", 16)) {
-	//	return http_dispatch_meta_newchannel(&req);
+		return http_dispatch_meta_newchannel(req);
 	} 
 
-	return -1;
+	return 0;
 }
 
 /**
@@ -134,10 +86,23 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 		val = calloc(1 + val_len, 1);
 		memcpy(val, p, val_len);
 
-/*
-		printf("key=[%s](%lu), val=[%s](%lu)\n",
-			key, key_len, val, val_len);
-*/
+		/* retrieve uid, sid. */
+		/* TODO: do this in a callback function. */
+		if(key_len == 3 && strncmp(key, "uid", 3) == 0) {
+			req->uid = atol(val);
+		} else if(key_len == 3 && strncmp(key, "sid", 3) == 0) {
+			req->sid_len = val_len;
+			req->sid = calloc(req->sid_len+1, 1);
+			memcpy(req->sid, val, req->sid_len);
+		} else if(key_len == 4 && strncmp(key, "name", 4) == 0) {
+			req->name_len = val_len;
+			req->name = calloc(req->name_len+1, 1);
+			memcpy(req->name, val, req->name_len);
+		} else if(key_len == 4 && strncmp(key, "data", 4) == 0) {
+			req->data_len = val_len;
+			req->data = calloc(req->data_len+1, 1);
+			memcpy(req->data, val, req->data_len);
+		}
 		free(key);
 		free(val);
 
@@ -168,7 +133,6 @@ http_parser_onpath(http_parser *parser, const char *at, size_t len) {
 void *
 worker_main(void *ptr) {
 
-	int ret;
 	struct worker_info *wi = ptr;
 	void *raw;
 	http_parser parser;
@@ -222,14 +186,14 @@ worker_main(void *ptr) {
 		}
 
 		/* dispatch the client depending on the URL path */
-		http_dispatch(&req);
+		int action = http_dispatch(&req);
 
 		free(req.path);
 		req.path = NULL;
 
-		/* reply to the client */
-		ret = write(req.fd, "Hello, world.\r\n", 15);
-		close(req.fd);
+		if(0 == action) {
+			close(req.fd);
+		}
 	}
 
 	return NULL;

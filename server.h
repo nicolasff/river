@@ -24,8 +24,16 @@ struct http_request {
 	char *path;
 	size_t path_len;
 
+	long uid;
+
 	char *sid;
 	size_t sid_len;
+
+	char *name;
+	size_t name_len;
+
+	char *data;
+	size_t data_len;
 
 	char *qs; /* query string */
 	size_t qs_len;

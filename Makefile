@@ -1,20 +1,20 @@
 OUT=cometd
 OBJS=server.o socket.o user.o http_dispatch.o cometd.o connection.o channel.o message.o queue.o http-parser/http_parser.o
-CFLAGS=-g -ggdb -I/opt/libevent/include/ -Wall -Wextra `pkg-config glib-2.0 --cflags` -Ihttp-parser
-LDFLAGS=-levent -L/opt/libevent/lib -lpthread `pkg-config glib-2.0 --libs`
+CFLAGS=-g -ggdb -Wall -Wextra `pkg-config glib-2.0 --cflags` -Ihttp-parser
+LDFLAGS=-levent -lpthread `pkg-config glib-2.0 --libs`
 
-all: $(OUT)
+all: $(OUT) Makefile
 
-queue-demo: queue-demo.o queue.o http-parser/http_parser.o
+queue-demo: queue-demo.o queue.o http-parser/http_parser.o Makefile
 	$(CC) $(LDFLAGS) -o queue-demo queue-demo.o queue.o http-parser/http_parser.o
 
-$(OUT): $(OBJS)
+$(OUT): $(OBJS) Makefile
 	$(CC) $(LDFLAGS) -o $(OUT) $(OBJS)
 
-%.o: %.c %.h
+%.o: %.c %.h Makefile
 	$(CC) -c $(CFLAGS) -o $@ $<
 
-%.o: %.c
+%.o: %.c Makefile
 	$(CC) -c $(CFLAGS) -o $@ $<
 
 clean:

@@ -1,31 +1,25 @@
 #ifndef COMETD_HTTP_DISPATCH_H
 #define COMETD_HTTP_DISPATCH_H
 
-struct evhttp_request;
+struct http_request;
 
-void
-http_dispatch_meta_authenticate(struct evhttp_request *ev, void *data);
+int
+http_dispatch_meta_authenticate(struct http_request *req);
 
-void
-http_dispatch_meta_connect(struct evhttp_request *ev, void *data);
+int
+http_dispatch_meta_connect(struct http_request *req);
 
-void
-http_dispatch_meta_publish(struct evhttp_request *ev, void *nil);
+int
+http_dispatch_meta_publish(struct http_request *req);
 
-void
-http_dispatch_meta_subscribe(struct evhttp_request *ev, void *data);
+int
+http_dispatch_meta_subscribe(struct http_request *req);
 
-void
-http_dispatch_meta_unsubscribe(struct evhttp_request *ev, void *data);
+int
+http_dispatch_meta_unsubscribe(struct http_request *ev);
 
-void
-http_dispatch_meta_newchannel(struct evhttp_request *ev, void *data);
-
-void
-http_dispatch_close(struct evhttp_connection *evcon, void *data);
-
-void
-http_init();
+int
+http_dispatch_meta_newchannel(struct http_request *req);
 
 #endif /* COMETD_HTTP_DISPATCH_H */
 
