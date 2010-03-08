@@ -8,7 +8,6 @@
 
 #include "http_dispatch.h"
 #include "user.h"
-#include "connection.h"
 #include "channel.h"
 #include "server.h"
 #include "message.h"
@@ -62,7 +61,6 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 			user->fd = req->fd;
 			user_save(user);
 			success = 1;
-			printf("OK\n");
 		} 
 	}
 
@@ -74,8 +72,6 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 	}
 	return 0;
 }
-
-#if 1
 
 /**
  * Connect user. This call is blocking, waiting for new data.
@@ -99,31 +95,13 @@ http_dispatch_meta_connect(struct http_request *req) {
 		}
 	}
 
-	if(success) { /* register the request with the user */
-
-#if 0
-		struct evbuffer *padding;
-
-		pthread_mutex_lock(&user->lock);
-
-		/* send whitespace padding */
-		padding = evbuffer_new();
-		evhttp_send_reply_start(ev, 200, "OK");
-		evbuffer_add_printf(padding, "\n");
-		evhttp_send_reply_chunk(ev, padding);
-		evbuffer_free(padding);
-#endif
-
-
-		pthread_mutex_unlock(&user->lock);
-		return 1;
-
+	if(success) {
+		return 1; /* this means: do not close the connection. */
 	} else {
 		send_reply(req, 403);
 		return 0;
 	}
 }
-#endif
 
 /**
  * Publishes a message in a channel.
@@ -144,14 +122,12 @@ http_dispatch_meta_publish(struct http_request *req) {
 		return 0;
 	}
 
-
-	printf("sending to channel %s\n", req->name);
+	/* printf("sending to channel %s\n", req->name); */
 
 	/* send to all channel users. */
 	for(cu = channel->users; cu; cu = cu->next) {
 
 		struct p_user *user = user_find(cu->uid);
-		printf("user=%p\n", (void*)user);
 
 		if(NULL == user) {
 			continue;
@@ -159,6 +135,7 @@ http_dispatch_meta_publish(struct http_request *req) {
 
 		/* write message to user. TODO: use an inbox? */
 		write(user->fd, req->data, req->data_len);
+		write(user->fd, "\r\n", 2);
 	}
 
 	send_reply(req, 200);
@@ -193,8 +170,10 @@ http_dispatch_meta_subscribe(struct http_request *req) {
 				send_reply(req, 403);
 			} else {
 				send_reply(req, 200);
+				/*
 				printf("subscribe user %ld (sid %s) to channel %s\n",
 						req->uid, req->sid, req->name);
+				*/
 				channel_add_user(channel, user);
 			}
 			pthread_mutex_unlock(&(user->lock));

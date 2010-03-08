@@ -1,5 +1,5 @@
 OUT=cometd
-OBJS=server.o socket.o user.o http_dispatch.o cometd.o connection.o channel.o message.o queue.o http-parser/http_parser.o
+OBJS=server.o socket.o user.o http_dispatch.o cometd.o channel.o message.o queue.o http-parser/http_parser.o
 CFLAGS=-g -ggdb -Wall -Wextra `pkg-config glib-2.0 --cflags` -Ihttp-parser
 LDFLAGS=-levent -lpthread `pkg-config glib-2.0 --libs`
 

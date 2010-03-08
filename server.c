@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <sys/queue.h>
 #include <event.h>
-#include <evhttp.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <errno.h>
