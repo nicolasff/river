@@ -1,8 +1,14 @@
 #ifndef COMET_TEST_SERVER_H
 #define COMET_TEST_SERVER_H
+#include <event.h>
 
 struct event_base;
 struct queue_t;
+
+struct event_callback_data {
+	struct dispatcher_info *di;
+	struct event ev;
+};
 
 struct worker_info {
 	pthread_t 	thread;
@@ -34,9 +40,6 @@ struct http_request {
 
 	char *data;
 	size_t data_len;
-
-	char *qs; /* query string */
-	size_t qs_len;
 };
 
 int

@@ -54,3 +54,19 @@ user_find(long uid) {
 }
 
 
+void
+user_free(long uid) {
+	struct p_user *p;
+
+	pthread_mutex_lock(&users_mutex);
+	p = user_find(uid);
+	g_hash_table_remove(__users, GINT_TO_POINTER(uid));
+	pthread_mutex_unlock(&users_mutex);
+
+	if(p) {
+		/* TODO: free inbox. */
+		free(p->sid);
+		free(p);
+	}
+}
+

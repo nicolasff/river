@@ -35,6 +35,7 @@ channel_new(const char *name) {
 		free(channel);
 		return NULL;
 	}
+	pthread_mutex_init(&channel->lock, NULL);
 
 	pthread_mutex_lock(&channels_lock);
 	g_hash_table_insert(__channels, GINT_TO_POINTER(g_str_hash(name)),
@@ -90,5 +91,26 @@ channel_add_user(struct p_channel *channel, struct p_user *user) {
 	channel->users = pu;
 	
 	return 0;
+}
+
+void
+channel_del_user(struct p_channel *channel, long uid) {
+
+	struct p_channel_user *pu, *prev = NULL;
+
+	pthread_mutex_lock(&channel->lock);
+	for(pu = channel->users; pu; pu = pu->next) {
+
+		if(pu && pu->uid) {
+			if(prev) {
+				prev->next = pu->next;
+			} else {
+				channel->users = channel->users->next;
+			}
+			user_free(uid);
+		}
+		prev = pu;
+	}
+	pthread_mutex_unlock(&channel->lock);
 }
 

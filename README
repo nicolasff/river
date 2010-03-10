@@ -4,7 +4,6 @@ TODO
 * Export the HTTP GET parameters in a custom data structure
 * Lots of cleanup code.
 * Remove dead code
-* Ignore SIGPIPE
 * Remove dead clients, add timeouts
 * Get rid of GLib. Use antirez’s hash table, from redis? Check how easy it is to extract.
 * Add enums for returns messages, especially in http_dispatch.{c,h}

@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #include "socket.h"
 #include "server.h"
@@ -49,9 +50,6 @@ int
 http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 	
 	struct http_request *req = parser->data;
-	req->qs = calloc(1+len, 1);
-	memcpy(req->qs, at, len);
-	req->qs_len = len;
 
 	const char *p = strchr(at, '?');
 
@@ -137,6 +135,11 @@ worker_main(void *ptr) {
 	http_parser parser;
 	http_parser_settings settings;
 
+	/* ignore sigpipe */
+#ifdef SIGPIPE
+	signal(SIGPIPE, SIG_IGN);
+#endif
+
 	/* setup http parser */
 	memset(&settings, 0, sizeof(http_parser_settings));
 	settings.on_path = http_parser_onpath;
@@ -187,8 +190,11 @@ worker_main(void *ptr) {
 		/* dispatch the client depending on the URL path */
 		int action = http_dispatch(&req);
 
-		free(req.path);
-		req.path = NULL;
+		/* TODO: this is crap, use a proper HT here. */
+		free(req.path); req.path = NULL;
+		free(req.sid);  req.sid = NULL;
+		free(req.name); req.name = NULL;
+		free(req.data); req.data = NULL;
 
 		if(0 == action) {
 			close(req.fd);
@@ -204,15 +210,18 @@ worker_main(void *ptr) {
  */
 void
 on_client_data(int fd, short event, void *ptr) {
-	struct dispatcher_info *dispatcher = ptr;
+	struct event_callback_data *cb_data = ptr;
+	struct dispatcher_info *di = cb_data->di;
 
 	if(event != EV_READ) {
+		free(cb_data);
 		return;
 	}
 
 	/* push fd into queue so that it'll be handled by a worker. */
-	queue_push(dispatcher->q, (void*)(long)fd);
-	pthread_cond_signal(&dispatcher->cond);
+	queue_push(di->q, (void*)(long)fd);
+	pthread_cond_signal(&di->cond);
+	free(cb_data);
 }
 
 /**
@@ -225,7 +234,7 @@ on_accept(int fd, short event, void *ptr) {
 	int client_fd;
 	struct sockaddr addr;
 	socklen_t addrlen;
-	struct event *ev_client_data;
+	struct event_callback_data *cb_data;
 
 	if(event != EV_READ) {
 		return;
@@ -236,10 +245,11 @@ on_accept(int fd, short event, void *ptr) {
 	client_fd = accept(fd, &addr, &addrlen);
 
 	/* add read event */
-	ev_client_data = calloc(1, sizeof(struct event));
-	event_set(ev_client_data, client_fd, EV_READ, on_client_data, di);
-	event_base_set(di->base, ev_client_data);
-	event_add(ev_client_data, NULL);
+	cb_data = calloc(1, sizeof(struct event_callback_data));
+	cb_data->di = di;
+	event_set(&cb_data->ev, client_fd, EV_READ, on_client_data, cb_data);
+	event_base_set(di->base, &cb_data->ev);
+	event_add(&cb_data->ev, NULL);
 }
 
 /**

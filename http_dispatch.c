@@ -126,7 +126,8 @@ http_dispatch_meta_publish(struct http_request *req) {
 
 	/* send to all channel users. */
 	for(cu = channel->users; cu; cu = cu->next) {
-
+		size_t ret;
+		int success = 1;
 		struct p_user *user = user_find(cu->uid);
 
 		if(NULL == user) {
@@ -134,8 +135,18 @@ http_dispatch_meta_publish(struct http_request *req) {
 		}
 
 		/* write message to user. TODO: use an inbox? */
-		write(user->fd, req->data, req->data_len);
-		write(user->fd, "\r\n", 2);
+		ret = write(user->fd, req->data, req->data_len);
+		if(ret != req->data_len) { /* failed first write */
+			success = 0;
+		} else {
+			ret = write(user->fd, "\r\n", 2);
+			if(ret != 2) success = 0; /* failed second write */
+		}
+		if(0 == success) {
+			printf("FFFFFUUU-\n");
+			close(user->fd);
+			channel_del_user(channel, user->uid);
+		}
 	}
 
 	send_reply(req, 200);

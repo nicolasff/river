@@ -28,5 +28,8 @@ user_save(struct p_user *);
 struct p_user *
 user_find(long uid);
 
+void
+user_free(long uid);
+
 #endif /* COMETD_USER_H */
 

@@ -11,6 +11,7 @@ struct p_channel_user {
 struct p_channel {
 	char *name;
 	struct p_channel_user *users;
+	pthread_mutex_t lock;
 };
 
 void
@@ -30,6 +31,9 @@ channel_add_user(struct p_channel *, struct p_user *) ;
 
 int
 channel_has_user(struct p_channel *channel, struct p_user *user);
+
+void
+channel_del_user(struct p_channel *channel, long uid);
 
 #endif /* COMETD_CHANNEL_H */
 
