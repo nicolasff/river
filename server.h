@@ -23,25 +23,6 @@ struct dispatcher_info {
 	struct queue_t 		*q;
 };
 
-struct http_request {
-
-	int fd;
-
-	char *path;
-	size_t path_len;
-
-	long uid;
-
-	char *sid;
-	size_t sid_len;
-
-	char *name;
-	size_t name_len;
-
-	char *data;
-	size_t data_len;
-};
-
 int
 server_run(short nb_workers, short port);
 

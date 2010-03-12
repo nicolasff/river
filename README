@@ -3,11 +3,14 @@ TODO
 * A lot of refactoring in server.c and http_dispatch.c
 * Export the HTTP GET parameters in a custom data structure
 * Lots of cleanup code.
-* Remove dead code
-* Remove dead clients, add timeouts
+* Remove dead code.
+* Add timeouts.
 * Get rid of GLib. Use antirez’s hash table, from redis? Check how easy it is to extract.
 * Add enums for returns messages, especially in http_dispatch.{c,h}
-* A better demo.
+* Prepare a better demo.
+* Add content wrapper, probably JSON.
+* Add client capability detection (possible streaming or close connection after every push).
+
 
 
 1 - run `make clean all'

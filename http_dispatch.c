@@ -1,29 +1,18 @@
 #include <sys/queue.h>
 
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 #include "http_dispatch.h"
 #include "user.h"
 #include "channel.h"
 #include "server.h"
 #include "message.h"
+#include "http.h"
 
-
-void
-http_response(int fd, int code, char *status, const char *data, size_t len) {
-	
-	/* GNU-only. TODO: replace with something more portable */
-	dprintf(fd, "HTTP/1.1 %d %s\r\n"
-			"Content-Length: %lu\r\n"
-			"Content-Type: text/html\r\n"
-			"\r\n"
-			"%s",
-			code, status, len, data);
-}
 
 static void
 send_reply(struct http_request *req, int error) {
@@ -44,6 +33,27 @@ send_reply(struct http_request *req, int error) {
 }
 
 /**
+ * Dispatch based on the path
+ */
+int
+http_dispatch(struct http_request *req) {
+
+	if(req->path_len == 18 && 0 == strncmp(req->path, "/meta/authenticate", 18)) {
+		return http_dispatch_meta_authenticate(req);
+	} else if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/publish", 13)) {
+		return http_dispatch_meta_publish(req);
+	} else if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/connect", 13)) {
+		return http_dispatch_meta_connect(req);
+	} else if(req->path_len == 15 && 0 == strncmp(req->path, "/meta/subscribe", 15)) {
+		return http_dispatch_meta_subscribe(req);
+	} else if(req->path_len == 16 && 0 == strncmp(req->path, "/meta/newchannel", 16)) {
+		return http_dispatch_meta_newchannel(req);
+	}
+
+	return 0;
+}
+
+/**
  * Authenticate user.
  * 
  * Parameters: uid, sid.
@@ -54,9 +64,20 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 	struct p_user *user;
 	int success = 0;
 
+	long uid;
+	char *sid;
+	dictEntry *de;
+
+	if((de = dictFind(req->get, "uid"))) {
+		uid = atol(de->val);
+	}
+	if((de = dictFind(req->get, "sid"))) {
+		sid = de->val;
+	}
+
 	/* Look for user or create it */
-	if(NULL == user_find(req->uid)) {
-		user = user_new(req->uid, req->sid);
+	if(NULL == de || NULL == user_find(uid)) {
+		user = user_new(uid, sid);
 		if(user) {
 			user->fd = req->fd;
 			user_save(user);
@@ -84,18 +105,30 @@ http_dispatch_meta_connect(struct http_request *req) {
 	int success = 0;
 	struct p_user *user;
 
+	long uid;
+	char *sid;
+	dictEntry *de;
+
+	if((de = dictFind(req->get, "uid"))) {
+		uid = atol(de->val);
+	}
+	if((de = dictFind(req->get, "sid"))) {
+		sid = de->val;
+	}
+
 	/* find user. */
-	if(0 == req->uid || NULL == req->sid) {
+	if(0 == uid || NULL == sid) {
 		success = 0;
 	} else {
-		user = user_find(req->uid);
+		user = user_find(uid);
 		/* if user by uid is found, check sid */
-		if(user && !strncmp(req->sid, user->sid, req->sid_len)) { 
+		if(user && !strcmp(sid, user->sid)) {
 			success = 1;
 		}
 	}
 
 	if(success) {
+		http_streaming_start(req->fd, 200, "OK");
 		return 1; /* this means: do not close the connection. */
 	} else {
 		send_reply(req, 403);
@@ -114,8 +147,27 @@ http_dispatch_meta_publish(struct http_request *req) {
 	struct p_channel *channel;
 	struct p_channel_user *cu;
 
+	long uid;
+	char *sid, *name, *data;
+	dictEntry *de;
+	size_t data_len;
+
+	if((de = dictFind(req->get, "uid"))) {
+		uid = atol(de->val);
+	}
+	if((de = dictFind(req->get, "sid"))) {
+		sid = de->val;
+	}
+	if((de = dictFind(req->get, "name"))) {
+		name = de->val;
+	}
+	if((de = dictFind(req->get, "data"))) {
+		data = de->val;
+		data_len = de->size;
+	}
+
 	/* TODO: get (uid, sid) parameters from the sender, authenticate him */
-	channel = channel_find(req->name);
+	channel = channel_find(name);
 
 	if(NULL == channel) {
 		send_reply(req, 403);
@@ -127,7 +179,6 @@ http_dispatch_meta_publish(struct http_request *req) {
 	/* send to all channel users. */
 	for(cu = channel->users; cu; cu = cu->next) {
 		size_t ret;
-		int success = 1;
 		struct p_user *user = user_find(cu->uid);
 
 		if(NULL == user) {
@@ -135,15 +186,9 @@ http_dispatch_meta_publish(struct http_request *req) {
 		}
 
 		/* write message to user. TODO: use an inbox? */
-		ret = write(user->fd, req->data, req->data_len);
-		if(ret != req->data_len) { /* failed first write */
-			success = 0;
-		} else {
-			ret = write(user->fd, "\r\n", 2);
-			if(ret != 2) success = 0; /* failed second write */
-		}
-		if(0 == success) {
-			printf("FFFFFUUU-\n");
+		ret = http_streaming_chunk(user->fd, data, data_len); // TODO: store size.
+		if(ret != data_len) { /* failed write */
+			/* TODO: check that everything is cleaned. */
 			close(user->fd);
 			channel_del_user(channel, user->uid);
 		}
@@ -163,17 +208,33 @@ http_dispatch_meta_subscribe(struct http_request *req) {
 
 	struct p_channel *channel;
 
-	if(!(channel = channel_find(req->name))) {
+	long uid;
+	char *sid, *name;
+	dictEntry *de;
+	size_t sid_len;
+
+	if((de = dictFind(req->get, "uid"))) {
+		uid = atol(de->val);
+	}
+	if((de = dictFind(req->get, "sid"))) {
+		sid = de->val;
+		sid_len = de->size;
+	}
+	if((de = dictFind(req->get, "name"))) {
+		name = de->val;
+	}
+
+	if(!(channel = channel_find(name))) {
 		send_reply(req, 404);
 		return 0;
 	}
 
-	if(0 != req->uid && NULL != req->sid) { /* found user */
+	if(0 != uid && NULL != sid) { /* found user */
 		struct p_user *user;
 
-		user = user_find(req->uid);
+		user = user_find(uid);
 		/* if user by uid is found, authenticate using sid */
-		if(user && !strncmp(req->sid, user->sid, req->sid_len)) { 
+		if(user && !strncmp(sid, sid, sid_len)) {
 	
 			/* locking user here */
 			pthread_mutex_lock(&(user->lock));
@@ -183,7 +244,7 @@ http_dispatch_meta_subscribe(struct http_request *req) {
 				send_reply(req, 200);
 				/*
 				printf("subscribe user %ld (sid %s) to channel %s\n",
-						req->uid, req->sid, req->name);
+						uid, sid, name);
 				*/
 				channel_add_user(channel, user);
 			}
@@ -208,9 +269,16 @@ http_dispatch_meta_newchannel(struct http_request *req) {
 	/* get (name, key) parameters */
 	/* TODO: check that the key is right. */
 
+	char *name;
+	dictEntry *de;
+
+	if((de = dictFind(req->get, "name"))) {
+		name = de->val;
+	}
+
 	/* create channel */
-	if(NULL == channel_find(req->name)) {
-		channel_new(req->name);
+	if(NULL == channel_find(name)) {
+		channel_new(name);
 		send_reply(req, 200);
 	} else {
 		send_reply(req, 403);
