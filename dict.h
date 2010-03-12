@@ -115,7 +115,7 @@ typedef struct dictIterator {
 /* API */
 dict *dictCreate(dictType *type, void *privDataPtr);
 int dictExpand(dict *ht, unsigned long size);
-int dictAdd(dict *ht, void *key, char *val, size_t sz);
+int dictAdd(dict *ht, void *key, void *val, size_t sz);
 int dictReplace(dict *ht, void *key, char *val, size_t sz);
 int dictDelete(dict *ht, const void *key);
 int dictDeleteNoFree(dict *ht, const void *key);
@@ -134,5 +134,6 @@ extern dictType dictTypeHeapStringCopyKey;
 extern dictType dictTypeHeapStrings;
 extern dictType dictTypeHeapStringCopyKeyValue;
 extern dictType dictTypeCopyNoneFreeAll;
+extern dictType dictTypeCopyNoneFreeNone;
 
 #endif /* __DICT_H */

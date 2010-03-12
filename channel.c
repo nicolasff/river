@@ -3,21 +3,21 @@
 #include <string.h>
 #include "channel.h"
 #include "user.h"
+#include "dict.h"
 
-#include <glib.h>
 #include <pthread.h>
 
 /**
  * This is the hash table of all channels.
  */
-static GHashTable *__channels = NULL;
+static dict *__channels = NULL;
 static pthread_mutex_t channels_lock;
 
 void
 channel_init() {
 	if(NULL == __channels) {
 		pthread_mutex_init(&channels_lock, NULL);
-		__channels = g_hash_table_new_full(NULL, NULL, NULL, NULL);
+		__channels = dictCreate(&dictTypeCopyNoneFreeNone, NULL);
 	}
 }
 
@@ -38,8 +38,7 @@ channel_new(const char *name) {
 	pthread_mutex_init(&channel->lock, NULL);
 
 	pthread_mutex_lock(&channels_lock);
-	g_hash_table_insert(__channels, GINT_TO_POINTER(g_str_hash(name)),
-			channel);
+	dictAdd(__channels, channel->name, channel, 0);
 	pthread_mutex_unlock(&channels_lock);
 
 	return channel;
@@ -48,8 +47,11 @@ channel_new(const char *name) {
 struct p_channel *
 channel_find(const char *name) {
 
-	return g_hash_table_lookup(__channels, 
-			GINT_TO_POINTER(g_str_hash(name)));
+	dictEntry *de;
+	if((de = dictFind(__channels, name))) {
+		return (struct p_channel*)de->val;
+	}
+	return NULL;
 }
 
 void
@@ -98,6 +100,7 @@ channel_del_user(struct p_channel *channel, long uid) {
 
 	struct p_channel_user *pu, *prev = NULL;
 
+	/* TODO: better than this. */
 	pthread_mutex_lock(&channel->lock);
 	for(pu = channel->users; pu; pu = pu->next) {
 

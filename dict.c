@@ -172,7 +172,7 @@ int dictExpand(dict *ht, unsigned long size)
 }
 
 /* Add an element to the target hash table */
-int dictAdd(dict *ht, void *key, char *val, size_t sz)
+int dictAdd(dict *ht, void *key, void *val, size_t sz)
 {
     int index;
     dictEntry *entry;
