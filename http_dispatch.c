@@ -12,6 +12,7 @@
 #include "server.h"
 #include "message.h"
 #include "http.h"
+#include "dict.h"
 
 
 static void
@@ -64,8 +65,8 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 	struct p_user *user;
 	int success = 0;
 
-	long uid;
-	char *sid;
+	long uid = 0;
+	char *sid = NULL;
 	dictEntry *de;
 
 	if((de = dictFind(req->get, "uid"))) {
@@ -105,8 +106,8 @@ http_dispatch_meta_connect(struct http_request *req) {
 	int success = 0;
 	struct p_user *user;
 
-	long uid;
-	char *sid;
+	long uid = 0;
+	char *sid = NULL;
 	dictEntry *de;
 
 	if((de = dictFind(req->get, "uid"))) {
@@ -145,25 +146,22 @@ int
 http_dispatch_meta_publish(struct http_request *req) {
 
 	struct p_channel *channel;
-	struct p_channel_user *cu;
+	struct p_channel_user *pcu;
 
-	long uid;
-	char *sid, *name, *data;
+	char *name = NULL, *data = NULL;
 	dictEntry *de;
-	size_t data_len;
+	size_t data_len = 0;
 
-	if((de = dictFind(req->get, "uid"))) {
-		uid = atol(de->val);
-	}
-	if((de = dictFind(req->get, "sid"))) {
-		sid = de->val;
-	}
 	if((de = dictFind(req->get, "name"))) {
 		name = de->val;
 	}
 	if((de = dictFind(req->get, "data"))) {
 		data = de->val;
 		data_len = de->size;
+	}
+	if(!name || !data) {
+		send_reply(req, 403);
+		return 0;
 	}
 
 	/* TODO: get (uid, sid) parameters from the sender, authenticate him */
@@ -174,25 +172,19 @@ http_dispatch_meta_publish(struct http_request *req) {
 		return 0;
 	}
 
-	/* printf("sending to channel %s\n", req->name); */
-
 	/* send to all channel users. */
-	for(cu = channel->users; cu; cu = cu->next) {
-		size_t ret;
-		struct p_user *user = user_find(cu->uid);
-
-		if(NULL == user) {
-			continue;
-		}
+	CHANNEL_LOCK(channel);
+	for(pcu = channel->user_list; pcu; pcu = pcu->next) {
 
 		/* write message to user. TODO: use an inbox? */
-		ret = http_streaming_chunk(user->fd, data, data_len); // TODO: store size.
-		if(ret != data_len) { /* failed write */
+		int ret = http_streaming_chunk(pcu->user->fd, data, data_len);
+		if(ret != (int)data_len) { /* failed write */
 			/* TODO: check that everything is cleaned. */
-			close(user->fd);
-			channel_del_user(channel, user->uid);
+			close(pcu->user->fd);
+			channel_del_user(channel, pcu->user->uid);
 		}
 	}
+	CHANNEL_UNLOCK(channel);
 
 	send_reply(req, 200);
 	return 0;
@@ -208,10 +200,10 @@ http_dispatch_meta_subscribe(struct http_request *req) {
 
 	struct p_channel *channel;
 
-	long uid;
-	char *sid, *name;
+	long uid = 0;
+	char *sid = NULL, *name = NULL;
 	dictEntry *de;
-	size_t sid_len;
+	size_t sid_len = 0;
 
 	if((de = dictFind(req->get, "uid"))) {
 		uid = atol(de->val);
@@ -269,7 +261,7 @@ http_dispatch_meta_newchannel(struct http_request *req) {
 	/* get (name, key) parameters */
 	/* TODO: check that the key is right. */
 
-	char *name;
+	char *name = NULL;
 	dictEntry *de;
 
 	if((de = dictFind(req->get, "name"))) {

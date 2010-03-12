@@ -35,8 +35,14 @@ channel_new(const char *name) {
 		free(channel);
 		return NULL;
 	}
+
+	/* users in the channel */
+	channel->users = dictCreate(&dictTypeIntCopyNoneFreeNone, NULL);
+
+	/* channel lock */
 	pthread_mutex_init(&channel->lock, NULL);
 
+	/* add channel to a global list of channels */
 	pthread_mutex_lock(&channels_lock);
 	dictAdd(__channels, channel->name, channel, 0);
 	pthread_mutex_unlock(&channels_lock);
@@ -61,15 +67,12 @@ channel_free(struct p_channel * p) {
 	free(p);
 }
 
-/* TODO: make this faster than O(n), by using a uid → user HT in p_channel. */
 int
 channel_has_user(struct p_channel *channel, struct p_user *user) {
 
-	struct p_channel_user *cu;
-	for(cu = channel->users; cu; cu = cu->next) {
-		if(user->uid == cu->uid) {
-			return 1;
-		}
+	dictEntry *de;
+	if((de = dictFind(channel->users, (void*)user->uid))) {
+		return 1;
 	}
 	return 0;
 }
@@ -77,43 +80,51 @@ channel_has_user(struct p_channel *channel, struct p_user *user) {
 int
 channel_add_user(struct p_channel *channel, struct p_user *user) {
 
-	struct p_channel_user *pu;
-	
-	if(NULL == channel || NULL == user) {
-		return -1;
-	}
+	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
+	pcu->user = user;
 
-	pu = calloc(1, sizeof(struct p_channel_user));
-	if(NULL == pu) {
-		return -1;
-	}
+	CHANNEL_LOCK(channel);
+	if(DICT_OK == dictAdd(channel->users,
+				(void*)user->uid, pcu, 0)) {
 
-	pu->uid = user->uid;
-	pu->next = channel->users;
-	channel->users = pu;
-	
-	return 0;
+		/* add user to the front of the list */
+		if(channel->user_list) {
+			channel->user_list->prev = pcu;
+		}
+		pcu->next = channel->user_list;
+		channel->user_list = pcu;
+
+		CHANNEL_UNLOCK(channel);
+		return 0;
+	}
+	free(pcu);
+	CHANNEL_UNLOCK(channel);
+	return -1;
 }
 
 void
 channel_del_user(struct p_channel *channel, long uid) {
 
-	struct p_channel_user *pu, *prev = NULL;
+	struct p_channel_user *pcu = NULL;
+	dictEntry *de;
+	/* lock */
+	CHANNEL_LOCK(channel);
+	if((de = dictFind(channel->users, (void*)uid))) {
 
-	/* TODO: better than this. */
-	pthread_mutex_lock(&channel->lock);
-	for(pu = channel->users; pu; pu = pu->next) {
+		pcu = (struct p_channel_user *)de->val;
 
-		if(pu && pu->uid) {
-			if(prev) {
-				prev->next = pu->next;
-			} else {
-				channel->users = channel->users->next;
-			}
-			user_free(uid);
+		if(pcu->prev) {
+			pcu->prev->next = pcu->next;
+		} else {
+			channel->user_list = channel->user_list->next;
+			channel->user_list->prev = NULL;
 		}
-		prev = pu;
+		dictDelete(channel->users, (void*)uid);
 	}
-	pthread_mutex_unlock(&channel->lock);
+
+	/* unlock chan & free */
+	CHANNEL_UNLOCK(channel);
+	user_free(uid);
+	free(pcu);
 }
 

@@ -1,16 +1,26 @@
 #ifndef COMETD_CHANNEL_H
 #define COMETD_CHANNEL_H
 
+#include "dict.h"
+
+#define CHANNEL_LOCK(c)(pthread_mutex_lock(&c->lock))
+#define CHANNEL_UNLOCK(c)(pthread_mutex_unlock(&c->lock))
+
 struct p_user;
 
 struct p_channel_user {
-	long uid;
+	struct p_user *user;
+
+	struct p_channel_user *prev;
 	struct p_channel_user *next;
 };
 
 struct p_channel {
 	char *name;
-	struct p_channel_user *users;
+	dict *users;
+
+	struct p_channel_user *user_list;
+
 	pthread_mutex_t lock;
 };
 

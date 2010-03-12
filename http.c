@@ -8,13 +8,17 @@
 void
 http_response(int fd, int code, const char *status, const char *data, size_t len) {
 	
+	int ret;
 	/* GNU-only. TODO: replace with something more portable */
-	dprintf(fd, "HTTP/1.1 %d %s\r\n"
+	ret = dprintf(fd, "HTTP/1.1 %d %s\r\n"
 			"Content-Type: text/html\r\n"
 			"Content-Length: %lu\r\n"
 			"\r\n",
 			code, status, len);
-	write(fd, data, len);
+	if(ret) {
+		ret = write(fd, data, len);
+		(void)ret;
+	}
 }
 
 void
@@ -37,7 +41,8 @@ http_streaming_chunk(int fd, const char *data, size_t len) {
 void
 http_streaming_end(int fd) {
 
-	write(fd, "0\r\n\r\n", 5);
+	int ret = write(fd, "0\r\n\r\n", 5);
+	(void)ret;
 	close(fd);
 }
 
