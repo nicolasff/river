@@ -87,7 +87,7 @@ worker_main(void *ptr) {
 		/* dispatch the client depending on the URL path */
 		int action = http_dispatch(&req);
 
-		/* TODO: this is crap, use a proper HT here. */
+		/* cleanup */
 		free(req.path); req.path = NULL;
 		dictRelease(req.get);
 
