@@ -135,5 +135,6 @@ extern dictType dictTypeHeapStrings;
 extern dictType dictTypeHeapStringCopyKeyValue;
 extern dictType dictTypeCopyNoneFreeAll;
 extern dictType dictTypeCopyNoneFreeNone;
+extern dictType dictTypeIntCopyNoneFreeNone;
 
 #endif /* __DICT_H */

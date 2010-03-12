@@ -1,15 +1,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <glib.h>
 #include <pthread.h>
 
 #include "user.h"
+#include "dict.h"
 
 /**
  * Static table containing all users.
  */
-static GHashTable *__users = NULL;
+static dict *__users = NULL;
 pthread_mutex_t users_mutex;
 
 struct p_user *
@@ -30,7 +30,7 @@ void
 user_init() {
 
 	if(NULL == __users) {
-		__users = g_hash_table_new_full(NULL, NULL, NULL, NULL);
+		__users = dictCreate(&dictTypeIntCopyNoneFreeNone, NULL);
 		pthread_mutex_init(&users_mutex, NULL);
 	}
 }
@@ -38,7 +38,7 @@ user_init() {
 void
 user_save(struct p_user *p) {
 	pthread_mutex_lock(&users_mutex);
-	g_hash_table_insert(__users, GINT_TO_POINTER(p->uid), p);
+	dictAdd(__users, (void*)p->uid, p, 0);
 	pthread_mutex_unlock(&users_mutex);
 }
 
@@ -48,19 +48,21 @@ user_save(struct p_user *p) {
 struct p_user *
 user_find(long uid) {
 
-	gpointer key = GINT_TO_POINTER(uid);
-	return (struct p_user*)g_hash_table_lookup(__users, key);
-
+	dictEntry *de;
+	if((de = dictFind(__users, (void*)uid))) {
+		return (struct p_user*)de->val;
+	}
+	return NULL;
 }
 
 
 void
 user_free(long uid) {
 	struct p_user *p;
+	p = user_find(uid);
 
 	pthread_mutex_lock(&users_mutex);
-	p = user_find(uid);
-	g_hash_table_remove(__users, GINT_TO_POINTER(uid));
+	dictDelete(__users, (void*)uid);
 	pthread_mutex_unlock(&users_mutex);
 
 	if(p) {

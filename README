@@ -1,3 +1,11 @@
+COMPILE
+=======
+You need to fetch the http-parser submodule, by typing:
+git submodule init
+git submodule update
+
+
+
 TODO
 ====
 * A lot of refactoring in server.c and http_dispatch.c

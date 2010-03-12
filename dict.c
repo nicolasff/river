@@ -398,6 +398,19 @@ void dictEmpty(dict *ht) {
     _dictClear(ht);
 }
 
+/* ----------------------- Int Hash Table Type ------------------------*/
+static unsigned int _dictIntCopyHTHashFunction(const void *key)
+{
+    return dictIntHashFunction((long)key);
+}
+
+static int _dictIntCopyHTKeyCompare(void *privdata, const void *key1,
+        const void *key2)
+{
+    DICT_NOTUSED(privdata);
+
+    return (long)key1 ==  (long)key2;
+}
 /* ----------------------- StringCopy Hash Table Type ------------------------*/
 
 static unsigned int _dictStringCopyHTHashFunction(const void *key)
@@ -467,24 +480,33 @@ dictType dictTypeCopyNoneFreeNone = {
     NULL                                  /* val destructor */
 };
 
+dictType dictTypeIntCopyNoneFreeNone = {
+    _dictIntCopyHTHashFunction,           /* hash function */
+    NULL, 			          /* key dup */
+    NULL,                                 /* val dup */
+    _dictIntCopyHTKeyCompare,             /* key compare */
+    NULL,                                 /* key destructor */
+    NULL                                  /* val destructor */
+};
+
 dictType dictTypeHeapStringCopyKey = {
     _dictStringCopyHTHashFunction,        /* hash function */
     _dictStringCopyHTKeyDup,              /* key dup */
-    NULL,                               /* val dup */
+    NULL,                                 /* val dup */
     _dictStringCopyHTKeyCompare,          /* key compare */
     _dictStringCopyHTKeyDestructor,       /* key destructor */
-    NULL                                /* val destructor */
+    NULL                                  /* val destructor */
 };
 
 /* This is like StringCopy but does not auto-duplicate the key.
  * It's used for intepreter's shared strings. */
 dictType dictTypeHeapStrings = {
     _dictStringCopyHTHashFunction,        /* hash function */
-    NULL,                               /* key dup */
-    NULL,                               /* val dup */
+    NULL,                                 /* key dup */
+    NULL,                                 /* val dup */
     _dictStringCopyHTKeyCompare,          /* key compare */
     _dictStringCopyHTKeyDestructor,       /* key destructor */
-    NULL                                /* val destructor */
+    NULL                                  /* val destructor */
 };
 
 /* This is like StringCopy but also automatically handle dynamic
