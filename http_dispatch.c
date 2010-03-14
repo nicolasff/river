@@ -148,9 +148,11 @@ http_dispatch_meta_publish(struct http_request *req) {
 	struct p_channel *channel;
 	struct p_channel_user *pcu;
 
-	char *name = NULL, *data = NULL;
+	long uid = 0;
+	char *sid = NULL, *name = NULL, *data = NULL;
 	dictEntry *de;
-	size_t data_len = 0;
+	size_t data_len = 0, sid_len = 0;
+	struct p_user *user;
 
 	if((de = dictFind(req->get, "name"))) {
 		name = de->val;
@@ -159,15 +161,28 @@ http_dispatch_meta_publish(struct http_request *req) {
 		data = de->val;
 		data_len = de->size;
 	}
-	if(!name || !data) {
+	if((de = dictFind(req->get, "uid"))) {
+		uid = atol(de->val);
+	}
+	if((de = dictFind(req->get, "sid"))) {
+		sid = de->val;
+		sid_len = de->size;
+	}
+	if(!sid || !uid || !name || !data) {
 		send_reply(req, 403);
 		return 0;
 	}
 
-	/* TODO: get (uid, sid) parameters from the sender, authenticate him */
-	channel = channel_find(name);
+	/* get (uid, sid) parameters from the sender, authenticate him */
+	user = user_find(uid);
+	if(0 != strncmp(user->sid, sid, sid_len)) {
+		send_reply(req, 403);
+		return 0;
+	}
 
-	if(NULL == channel) {
+
+	/* find channel */
+	if(!(channel = channel_find(name))) {
 		send_reply(req, 403);
 		return 0;
 	}
