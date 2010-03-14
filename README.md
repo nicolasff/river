@@ -8,7 +8,7 @@ git submodule update
 
 
 #### Run demo
-1 - run `make clean all`
+1 - run `make clean all`  
 2 - run `./cometd`
 
 3 - In a terminal, run:
