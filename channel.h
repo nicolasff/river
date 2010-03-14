@@ -18,10 +18,12 @@ struct p_channel_user {
 
 struct p_channel_message {
 
-	time_t ts;
-	char *data;
+	time_t ts; /* timestamp */
+
+	char *data; /* message contents */
 	size_t data_len;
-	/* TODO: add producer? */
+
+	long uid; /* producer */
 
 	struct p_channel_message *next;
 };
@@ -30,6 +32,7 @@ struct p_channel {
 	char *name;
 	dict *users;
 
+	/* TODO: replace this with a fixed-sized buffer */
 	struct p_channel_user *user_list;
 
 	struct p_channel_message *log;
@@ -59,7 +62,7 @@ void
 channel_del_user(struct p_channel *channel, long uid);
 
 void
-channel_write(struct p_channel *channel, const char *data, size_t data_len);
+channel_write(struct p_channel *channel, long uid, const char *data, size_t data_len);
 
 void
 channel_catchup_user(struct p_channel *channel, int fd, time_t timestamp);

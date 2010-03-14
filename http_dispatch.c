@@ -144,7 +144,6 @@ http_dispatch_meta_read(struct http_request *req) {
 
 	if(success) {
 		channel_add_user(channel, user, req->fd);
-		printf("added you to a channel, now streaming.\n");
 		http_streaming_start(req->fd, 200, "OK");
 		if(timestamp) {
 			channel_catchup_user(channel, req->fd, (time_t)timestamp);
@@ -206,7 +205,7 @@ http_dispatch_meta_publish(struct http_request *req) {
 	}
 
 	/* send to all channel users. */
-	channel_write(channel, data, data_len);
+	channel_write(channel, uid, data, data_len);
 
 	send_reply(req, 200);
 	return 0;

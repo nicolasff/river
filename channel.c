@@ -5,6 +5,7 @@
 #include "user.h"
 #include "dict.h"
 #include "http.h"
+#include "json.h"
 
 #include <unistd.h>
 #include <pthread.h>
@@ -132,8 +133,10 @@ channel_del_user(struct p_channel *channel, long uid) {
 }
 
 void
-channel_write(struct p_channel *channel, const char *data, size_t data_len) {
+channel_write(struct p_channel *channel, long uid, const char *data, size_t data_len) {
 
+	char *json;
+	size_t sz;
 	struct p_channel_user *pcu;
 	struct p_channel_message *msg;
 	msg = calloc(1, sizeof(struct p_channel_message));
@@ -145,33 +148,46 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len) {
 	msg->data = calloc(data_len, 1);
 	memcpy(msg->data, data, data_len);
 	msg->data_len = data_len;
+	json = json_msg(channel->name, uid, msg->ts, msg->data, &sz);
 
 	CHANNEL_LOCK(channel);
 	/* save log */
 	msg->next = channel->log;
 	channel->log = msg;
+	msg->uid = uid;
 
 	/* push message to connected users */
 	for(pcu = channel->user_list; pcu; pcu = pcu->next) {
 
 		/* write message to connected user */
-		int ret = http_streaming_chunk(pcu->fd, data, data_len);
-		if(ret != (int)data_len) { /* failed write */
+		int ret = http_streaming_chunk(pcu->fd, json, sz);
+		if(ret != (int)sz) { /* failed write */
 			/* TODO: check that everything is cleaned. */
 			close(pcu->fd);
 			// channel_del_user(channel, pcu->user->uid);
 		}
 	}
-
 	CHANNEL_UNLOCK(channel);
+	free(json);
 }
 
+/* TODO: this is the wrong order. fix it. */
 void
 channel_catchup_user(struct p_channel *channel, int fd, time_t timestamp) {
 
 	struct p_channel_message *msg;
-	for(msg = channel->log; msg && msg->ts > timestamp; msg = msg->next) {
-		int ret = http_streaming_chunk(fd, msg->data, msg->data_len);
-	}
 
+	http_streaming_chunk(fd, "[", 1);
+	for(msg = channel->log; msg && msg->ts > timestamp; msg = msg->next) {
+		size_t sz;
+		char *json = json_msg(channel->name, msg->uid, msg->ts, msg->data, &sz);
+		http_streaming_chunk(fd, json, sz);
+		free(json);
+		if(msg->next) {
+			http_streaming_chunk(fd, ", ", 2);
+		}
+		/* TODO: check return value for each call. */
+	}
+	http_streaming_chunk(fd, "]", 1);
 }
+
