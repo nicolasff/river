@@ -16,9 +16,6 @@ int
 http_dispatch_meta_publish(struct http_request *req);
 
 int
-http_dispatch_meta_subscribe(struct http_request *req);
-
-int
 http_dispatch_meta_unsubscribe(struct http_request *ev);
 
 int

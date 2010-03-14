@@ -45,10 +45,6 @@ http_dispatch(struct http_request *req) {
 		return http_dispatch_meta_publish(req);
 	} else if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/connect", 13)) {
 		return http_dispatch_meta_read(req);
-#if 0
-	} else if(req->path_len == 15 && 0 == strncmp(req->path, "/meta/subscribe", 15)) {
-		return http_dispatch_meta_subscribe(req);
-#endif
 	} else if(req->path_len == 16 && 0 == strncmp(req->path, "/meta/newchannel", 16)) {
 		return http_dispatch_meta_newchannel(req);
 	}
@@ -210,69 +206,6 @@ http_dispatch_meta_publish(struct http_request *req) {
 	send_reply(req, 200);
 	return 0;
 }
-
-
-#if 0
-
-/**
- * Subscribe a user to a channel.
- */
-int
-http_dispatch_meta_subscribe(struct http_request *req) {
-
-	struct p_channel *channel;
-
-	long uid = 0;
-	char *sid = NULL, *name = NULL;
-	dictEntry *de;
-	size_t sid_len = 0;
-
-	if((de = dictFind(req->get, "uid"))) {
-		uid = atol(de->val);
-	}
-	if((de = dictFind(req->get, "sid"))) {
-		sid = de->val;
-		sid_len = de->size;
-	}
-	if((de = dictFind(req->get, "name"))) {
-		name = de->val;
-	}
-
-	if(!(channel = channel_find(name))) {
-		send_reply(req, 404);
-		return 0;
-	}
-
-	if(0 != uid && NULL != sid) { /* found user */
-		struct p_user *user;
-
-		user = user_find(uid);
-		/* if user by uid is found, authenticate using sid */
-		if(user && !strncmp(sid, sid, sid_len)) {
-	
-			/* locking user here */
-			pthread_mutex_lock(&(user->lock));
-			if(channel_has_user(channel, user)) {
-				send_reply(req, 403);
-			} else {
-				send_reply(req, 200);
-				/*
-				printf("subscribe user %ld (sid %s) to channel %s\n",
-						uid, sid, name);
-				*/
-				channel_add_user(channel, user);
-			}
-			pthread_mutex_unlock(&(user->lock));
-
-		} else { /* wrong sid or unknown user */
-			send_reply(req, 403);
-		}
-	} else { /* wrong parameters */
-		send_reply(req, 403);
-	}
-	return 0;
-}
-#endif
 
 /**
  * Creates a new channel.
