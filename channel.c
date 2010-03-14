@@ -3,7 +3,6 @@
 #include <string.h>
 #include "channel.h"
 #include "user.h"
-#include "dict.h"
 #include "http.h"
 #include "json.h"
 
@@ -39,9 +38,6 @@ channel_new(const char *name) {
 		return NULL;
 	}
 
-	/* users in the channel */
-	channel->users = dictCreate(&dictTypeIntCopyNoneFreeNone, NULL);
-
 	/* channel lock */
 	pthread_mutex_init(&channel->lock, NULL);
 
@@ -71,16 +67,6 @@ channel_free(struct p_channel * p) {
 }
 
 int
-channel_has_user(struct p_channel *channel, struct p_user *user) {
-
-	dictEntry *de;
-	if((de = dictFind(channel->users, (void*)user->uid))) {
-		return 1;
-	}
-	return 0;
-}
-
-int
 channel_add_user(struct p_channel *channel, struct p_user *user, int fd) {
 
 	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
@@ -88,47 +74,31 @@ channel_add_user(struct p_channel *channel, struct p_user *user, int fd) {
 	pcu->fd = fd;
 
 	CHANNEL_LOCK(channel);
-	if(DICT_OK == dictAdd(channel->users,
-				(void*)user->uid, pcu, 0)) {
 
-		/* add user to the front of the list */
-		if(channel->user_list) {
-			channel->user_list->prev = pcu;
-		}
-		pcu->next = channel->user_list;
-		channel->user_list = pcu;
-
-		CHANNEL_UNLOCK(channel);
-		return 0;
+	/* add user to the front of the list */
+	if(channel->user_list) {
+		channel->user_list->prev = pcu;
 	}
-	free(pcu);
+	pcu->next = channel->user_list;
+	channel->user_list = pcu;
+
 	CHANNEL_UNLOCK(channel);
-	return -1;
+	return 0;
 }
 
 void
-channel_del_user(struct p_channel *channel, long uid) {
+channel_del_user(struct p_channel *channel, struct p_channel_user *pcu) {
 
-	struct p_channel_user *pcu = NULL;
-	dictEntry *de;
-	/* lock */
-	CHANNEL_LOCK(channel);
-	if((de = dictFind(channel->users, (void*)uid))) {
-
-		pcu = (struct p_channel_user *)de->val;
-
-		if(pcu->prev) {
-			pcu->prev->next = pcu->next;
-		} else {
-			channel->user_list = channel->user_list->next;
+	/* remove from list */
+	if(pcu->prev) {
+		pcu->prev->next = pcu->next;
+	} else {
+		channel->user_list = channel->user_list->next;
+		if(channel->user_list) {
 			channel->user_list->prev = NULL;
 		}
-		dictDelete(channel->users, (void*)uid);
 	}
 
-	/* unlock chan & free */
-	CHANNEL_UNLOCK(channel);
-	user_free(uid);
 	free(pcu);
 }
 
@@ -163,8 +133,9 @@ channel_write(struct p_channel *channel, long uid, const char *data, size_t data
 		int ret = http_streaming_chunk(pcu->fd, json, sz);
 		if(ret != (int)sz) { /* failed write */
 			/* TODO: check that everything is cleaned. */
+			printf("FAILED WRITE\n");
 			close(pcu->fd);
-			// channel_del_user(channel, pcu->user->uid);
+			channel_del_user(channel, pcu);
 		}
 	}
 	CHANNEL_UNLOCK(channel);

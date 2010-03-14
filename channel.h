@@ -1,8 +1,6 @@
 #ifndef COMETD_CHANNEL_H
 #define COMETD_CHANNEL_H
 
-#include "dict.h"
-
 #define CHANNEL_LOCK(c)(pthread_mutex_lock(&c->lock))
 #define CHANNEL_UNLOCK(c)(pthread_mutex_unlock(&c->lock))
 
@@ -30,7 +28,6 @@ struct p_channel_message {
 
 struct p_channel {
 	char *name;
-	dict *users;
 
 	/* TODO: replace this with a fixed-sized buffer */
 	struct p_channel_user *user_list;
@@ -55,11 +52,8 @@ channel_find(const char *name);
 int
 channel_add_user(struct p_channel *, struct p_user *, int fd) ;
 
-int
-channel_has_user(struct p_channel *channel, struct p_user *user);
-
 void
-channel_del_user(struct p_channel *channel, long uid);
+channel_del_user(struct p_channel *channel, struct p_channel_user *pcu);
 
 void
 channel_write(struct p_channel *channel, long uid, const char *data, size_t data_len);
