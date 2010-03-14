@@ -1,6 +1,9 @@
 #ifndef COMETD_USER_H
 #define COMETD_USER_H
 
+#define USER_LOCK(u)(pthread_mutex_lock(&u->lock))
+#define USER_UNLOCK(u)(pthread_mutex_unlock(&u->lock))
+
 struct p_message;
 
 /**
@@ -11,7 +14,6 @@ struct p_user {
 
 	long uid; /* user id, unique to this user */
 	char * sid; /* session id */
-	struct p_message *inbox;
 
 	pthread_mutex_t lock;
 };

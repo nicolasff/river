@@ -10,9 +10,20 @@ struct p_user;
 
 struct p_channel_user {
 	struct p_user *user;
+	int fd;
 
 	struct p_channel_user *prev;
 	struct p_channel_user *next;
+};
+
+struct p_channel_message {
+
+	time_t ts;
+	char *data;
+	size_t data_len;
+	/* TODO: add producer? */
+
+	struct p_channel_message *next;
 };
 
 struct p_channel {
@@ -20,6 +31,8 @@ struct p_channel {
 	dict *users;
 
 	struct p_channel_user *user_list;
+
+	struct p_channel_message *log;
 
 	pthread_mutex_t lock;
 };
@@ -37,13 +50,19 @@ struct p_channel *
 channel_find(const char *name);
 
 int
-channel_add_user(struct p_channel *, struct p_user *) ;
+channel_add_user(struct p_channel *, struct p_user *, int fd) ;
 
 int
 channel_has_user(struct p_channel *channel, struct p_user *user);
 
 void
 channel_del_user(struct p_channel *channel, long uid);
+
+void
+channel_write(struct p_channel *channel, const char *data, size_t data_len);
+
+void
+channel_catchup_user(struct p_channel *channel, int fd, time_t timestamp);
 
 #endif /* COMETD_CHANNEL_H */
 

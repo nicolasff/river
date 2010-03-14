@@ -10,7 +10,7 @@ int
 http_dispatch_meta_authenticate(struct http_request *req);
 
 int
-http_dispatch_meta_connect(struct http_request *req);
+http_dispatch_meta_read(struct http_request *req);
 
 int
 http_dispatch_meta_publish(struct http_request *req);

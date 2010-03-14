@@ -4,7 +4,9 @@
 #include "channel.h"
 #include "user.h"
 #include "dict.h"
+#include "http.h"
 
+#include <unistd.h>
 #include <pthread.h>
 
 /**
@@ -78,10 +80,11 @@ channel_has_user(struct p_channel *channel, struct p_user *user) {
 }
 
 int
-channel_add_user(struct p_channel *channel, struct p_user *user) {
+channel_add_user(struct p_channel *channel, struct p_user *user, int fd) {
 
 	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
 	pcu->user = user;
+	pcu->fd = fd;
 
 	CHANNEL_LOCK(channel);
 	if(DICT_OK == dictAdd(channel->users,
@@ -128,3 +131,47 @@ channel_del_user(struct p_channel *channel, long uid) {
 	free(pcu);
 }
 
+void
+channel_write(struct p_channel *channel, const char *data, size_t data_len) {
+
+	struct p_channel_user *pcu;
+	struct p_channel_message *msg;
+	msg = calloc(1, sizeof(struct p_channel_message));
+
+	/* timestamp */
+	msg->ts = time(NULL);
+
+	/* copy data */
+	msg->data = calloc(data_len, 1);
+	memcpy(msg->data, data, data_len);
+	msg->data_len = data_len;
+
+	CHANNEL_LOCK(channel);
+	/* save log */
+	msg->next = channel->log;
+	channel->log = msg;
+
+	/* push message to connected users */
+	for(pcu = channel->user_list; pcu; pcu = pcu->next) {
+
+		/* write message to connected user */
+		int ret = http_streaming_chunk(pcu->fd, data, data_len);
+		if(ret != (int)data_len) { /* failed write */
+			/* TODO: check that everything is cleaned. */
+			close(pcu->fd);
+			// channel_del_user(channel, pcu->user->uid);
+		}
+	}
+
+	CHANNEL_UNLOCK(channel);
+}
+
+void
+channel_catchup_user(struct p_channel *channel, int fd, time_t timestamp) {
+
+	struct p_channel_message *msg;
+	for(msg = channel->log; msg && msg->ts > timestamp; msg = msg->next) {
+		int ret = http_streaming_chunk(fd, msg->data, msg->data_len);
+	}
+
+}

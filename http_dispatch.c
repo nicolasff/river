@@ -44,9 +44,11 @@ http_dispatch(struct http_request *req) {
 	} else if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/publish", 13)) {
 		return http_dispatch_meta_publish(req);
 	} else if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/connect", 13)) {
-		return http_dispatch_meta_connect(req);
+		return http_dispatch_meta_read(req);
+#if 0
 	} else if(req->path_len == 15 && 0 == strncmp(req->path, "/meta/subscribe", 15)) {
 		return http_dispatch_meta_subscribe(req);
+#endif
 	} else if(req->path_len == 16 && 0 == strncmp(req->path, "/meta/newchannel", 16)) {
 		return http_dispatch_meta_newchannel(req);
 	}
@@ -96,18 +98,19 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 }
 
 /**
- * Connect user. This call is blocking, waiting for new data.
+ * Connect user to a channel. This call is blocking, waiting for new data.
  * 
- * Parameters: uid, sid.
+ * Parameters: uid, sid, name, [time]
  */
 int
-http_dispatch_meta_connect(struct http_request *req) {
+http_dispatch_meta_read(struct http_request *req) {
 
 	int success = 0;
-	struct p_user *user;
+	struct p_user *user = NULL;
+	struct p_channel *channel = NULL;
 
-	long uid = 0;
-	char *sid = NULL;
+	long uid = 0, timestamp = 0;
+	char *sid = NULL, *name = NULL;
 	dictEntry *de;
 
 	if((de = dictFind(req->get, "uid"))) {
@@ -116,9 +119,15 @@ http_dispatch_meta_connect(struct http_request *req) {
 	if((de = dictFind(req->get, "sid"))) {
 		sid = de->val;
 	}
+	if((de = dictFind(req->get, "name"))) {
+		name = de->val;
+	}
+	if((de = dictFind(req->get, "time"))) { /* optional */
+		timestamp = atol(de->val);
+	}
 
 	/* find user. */
-	if(0 == uid || NULL == sid) {
+	if(!uid || !sid || !name) {
 		success = 0;
 	} else {
 		user = user_find(uid);
@@ -128,8 +137,18 @@ http_dispatch_meta_connect(struct http_request *req) {
 		}
 	}
 
+	/* find channel */
+	if(!(channel = channel_find(name))) {
+		success = 0;
+	}
+
 	if(success) {
+		channel_add_user(channel, user, req->fd);
+		printf("added you to a channel, now streaming.\n");
 		http_streaming_start(req->fd, 200, "OK");
+		if(timestamp) {
+			channel_catchup_user(channel, req->fd, (time_t)timestamp);
+		}
 		return 1; /* this means: do not close the connection. */
 	} else {
 		send_reply(req, 403);
@@ -146,11 +165,12 @@ int
 http_dispatch_meta_publish(struct http_request *req) {
 
 	struct p_channel *channel;
-	struct p_channel_user *pcu;
 
-	char *name = NULL, *data = NULL;
+	long uid = 0;
+	char *sid = NULL, *name = NULL, *data = NULL;
 	dictEntry *de;
-	size_t data_len = 0;
+	size_t data_len = 0, sid_len = 0;
+	struct p_user *user;
 
 	if((de = dictFind(req->get, "name"))) {
 		name = de->val;
@@ -159,38 +179,41 @@ http_dispatch_meta_publish(struct http_request *req) {
 		data = de->val;
 		data_len = de->size;
 	}
-	if(!name || !data) {
+	if((de = dictFind(req->get, "uid"))) {
+		uid = atol(de->val);
+	}
+	if((de = dictFind(req->get, "sid"))) {
+		sid = de->val;
+		sid_len = de->size;
+	}
+	if(!sid || !uid || !name || !data) {
 		send_reply(req, 403);
 		return 0;
 	}
 
-	/* TODO: get (uid, sid) parameters from the sender, authenticate him */
-	channel = channel_find(name);
+	/* get (uid, sid) parameters from the sender, authenticate him */
+	user = user_find(uid);
+	if(0 != strncmp(user->sid, sid, sid_len)) {
+		send_reply(req, 403);
+		return 0;
+	}
 
-	if(NULL == channel) {
+
+	/* find channel */
+	if(!(channel = channel_find(name))) {
 		send_reply(req, 403);
 		return 0;
 	}
 
 	/* send to all channel users. */
-	CHANNEL_LOCK(channel);
-	for(pcu = channel->user_list; pcu; pcu = pcu->next) {
-
-		/* write message to user. TODO: use an inbox? */
-		int ret = http_streaming_chunk(pcu->user->fd, data, data_len);
-		if(ret != (int)data_len) { /* failed write */
-			/* TODO: check that everything is cleaned. */
-			close(pcu->user->fd);
-			channel_del_user(channel, pcu->user->uid);
-		}
-	}
-	CHANNEL_UNLOCK(channel);
+	channel_write(channel, data, data_len);
 
 	send_reply(req, 200);
 	return 0;
 }
 
 
+#if 0
 
 /**
  * Subscribe a user to a channel.
@@ -250,6 +273,7 @@ http_dispatch_meta_subscribe(struct http_request *req) {
 	}
 	return 0;
 }
+#endif
 
 /**
  * Creates a new channel.

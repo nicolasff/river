@@ -66,7 +66,6 @@ user_free(long uid) {
 	pthread_mutex_unlock(&users_mutex);
 
 	if(p) {
-		/* TODO: free inbox. */
 		free(p->sid);
 		free(p);
 	}
