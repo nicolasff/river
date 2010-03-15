@@ -133,7 +133,6 @@ channel_write(struct p_channel *channel, long uid, const char *data, size_t data
 		int ret = http_streaming_chunk(pcu->fd, json, sz);
 		if(ret != (int)sz) { /* failed write */
 			/* TODO: check that everything is cleaned. */
-			printf("FAILED WRITE\n");
 			close(pcu->fd);
 			channel_del_user(channel, pcu);
 		}
@@ -154,7 +153,7 @@ channel_catchup_user(struct p_channel *channel, int fd, time_t timestamp) {
 		char *json = json_msg(channel->name, msg->uid, msg->ts, msg->data, &sz);
 		http_streaming_chunk(fd, json, sz);
 		free(json);
-		if(msg->next) {
+		if(msg->next && msg->next->ts > timestamp) {
 			http_streaming_chunk(fd, ", ", 2);
 		}
 		/* TODO: check return value for each call. */
