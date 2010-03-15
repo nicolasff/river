@@ -22,8 +22,6 @@ struct p_channel_message {
 	size_t data_len;
 
 	long uid; /* producer */
-
-	struct p_channel_message *next;
 };
 
 struct p_channel {
@@ -32,7 +30,8 @@ struct p_channel {
 	/* TODO: replace this with a fixed-sized buffer */
 	struct p_channel_user *user_list;
 
-	struct p_channel_message *log;
+	struct p_channel_message *log_buffer;
+	int log_pos;
 
 	pthread_mutex_t lock;
 };
@@ -58,7 +57,7 @@ channel_del_user(struct p_channel *channel, struct p_channel_user *pcu);
 void
 channel_write(struct p_channel *channel, long uid, const char *data, size_t data_len);
 
-void
+int
 channel_catchup_user(struct p_channel *channel, int fd, time_t timestamp);
 
 #endif /* COMETD_CHANNEL_H */

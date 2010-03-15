@@ -142,7 +142,7 @@ http_dispatch_meta_read(struct http_request *req) {
 		channel_add_user(channel, user, req->fd);
 		http_streaming_start(req->fd, 200, "OK");
 		if(timestamp) {
-			channel_catchup_user(channel, req->fd, (time_t)timestamp);
+			return channel_catchup_user(channel, req->fd, (time_t)timestamp);
 		}
 		return 1; /* this means: do not close the connection. */
 	} else {

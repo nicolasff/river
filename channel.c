@@ -9,6 +9,12 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#define LOG_BUFFER_SIZE	20
+
+#define LOG_CUR(c) (c->log_pos)
+#define LOG_NEXT(pos) ((pos + 1) % LOG_BUFFER_SIZE)
+#define LOG_PREV(pos) ((pos + LOG_BUFFER_SIZE -1) % LOG_BUFFER_SIZE)
+
 /**
  * This is the hash table of all channels.
  */
@@ -37,6 +43,14 @@ channel_new(const char *name) {
 		free(channel);
 		return NULL;
 	}
+
+	channel->log_buffer = calloc(LOG_BUFFER_SIZE, sizeof(struct p_channel_message));
+	if(NULL == channel->log_buffer) {
+		free(channel->name);
+		free(channel);
+		return NULL;
+	}
+
 
 	/* channel lock */
 	pthread_mutex_init(&channel->lock, NULL);
@@ -106,58 +120,81 @@ void
 channel_write(struct p_channel *channel, long uid, const char *data, size_t data_len) {
 
 	char *json;
-	size_t sz;
 	struct p_channel_user *pcu;
 	struct p_channel_message *msg;
-	msg = calloc(1, sizeof(struct p_channel_message));
-
-	/* timestamp */
-	msg->ts = time(NULL);
-
-	/* copy data */
-	msg->data = calloc(data_len, 1);
-	memcpy(msg->data, data, data_len);
-	msg->data_len = data_len;
-	json = json_msg(channel->name, uid, msg->ts, msg->data, &sz);
 
 	CHANNEL_LOCK(channel);
-	/* save log */
-	msg->next = channel->log;
-	channel->log = msg;
+
+	/* get next pointer to a log message. */
+	msg = &channel->log_buffer[channel->log_pos];
+
+	msg->ts = time(NULL); /* timestamp */
+
+	free(msg->data); /* free old log message */
+
+	/* copy log data */
+	msg->data = calloc(data_len, 1);
+	json = json_msg(channel->name, uid, msg->ts, data, &msg->data_len);
+	msg->data = json;
 	msg->uid = uid;
+
+	/* incr log pointer */
+	channel->log_pos = LOG_NEXT(channel->log_pos);
 
 	/* push message to connected users */
 	for(pcu = channel->user_list; pcu; pcu = pcu->next) {
 
 		/* write message to connected user */
-		int ret = http_streaming_chunk(pcu->fd, json, sz);
-		if(ret != (int)sz) { /* failed write */
+		int ret = http_streaming_chunk(pcu->fd, msg->data, msg->data_len);
+		if(ret != (int)msg->data_len) { /* failed write */
 			/* TODO: check that everything is cleaned. */
 			close(pcu->fd);
 			channel_del_user(channel, pcu);
 		}
 	}
 	CHANNEL_UNLOCK(channel);
-	free(json);
 }
 
-/* TODO: this is the wrong order. fix it. */
-void
+int
 channel_catchup_user(struct p_channel *channel, int fd, time_t timestamp) {
 
 	struct p_channel_message *msg;
+	int pos, first, last;
+
+	last = LOG_CUR(channel);
+	first = pos = LOG_PREV(last);
+
+	for(;;) {
+		msg = &channel->log_buffer[pos];
+
+		if(last == LOG_PREV(pos) || !msg->ts || msg->ts < timestamp) {
+			/* found all we could. */
+			break;
+		}
+		first = pos;
+		pos = LOG_PREV(pos);
+	}
+
+	if(first +1 == last && channel->log_buffer[first].ts < timestamp) {
+		return 1;
+	}
 
 	http_streaming_chunk(fd, "[", 1);
-	for(msg = channel->log; msg && msg->ts > timestamp; msg = msg->next) {
-		size_t sz;
-		char *json = json_msg(channel->name, msg->uid, msg->ts, msg->data, &sz);
-		http_streaming_chunk(fd, json, sz);
-		free(json);
-		if(msg->next && msg->next->ts > timestamp) {
+	for(pos = first; pos != last; pos = LOG_NEXT(pos)) {
+
+		msg = &channel->log_buffer[pos];
+
+		http_streaming_chunk(fd, msg->data, msg->data_len);
+
+		if(pos != LOG_PREV(last)) {
+			/* TODO: check return value for each call. */
 			http_streaming_chunk(fd, ", ", 2);
 		}
-		/* TODO: check return value for each call. */
+
 	}
 	http_streaming_chunk(fd, "]", 1);
+	http_streaming_end(fd);
+
+	return 0;
 }
 
