@@ -1,5 +1,5 @@
-#ifndef COMET_TEST_SERVER_H
-#define COMET_TEST_SERVER_H
+#ifndef COMET_SERVER_H
+#define COMET_SERVER_H
 #include <event.h>
 
 struct event_base;
@@ -11,8 +11,9 @@ struct event_callback_data {
 };
 
 struct event_timeout_data {
-	struct event ev;
+	struct event *ev;
 	struct timeval tv;
+	int fd;
 };
 
 struct worker_info {
@@ -31,5 +32,5 @@ struct dispatcher_info {
 int
 server_run(short nb_workers, short port);
 
-#endif /* COMET_TEST_SERVER_H */
+#endif /* COMET_SERVER_H */
 
