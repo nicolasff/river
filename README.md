@@ -35,7 +35,6 @@ curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of
 ** IP
 ** Port
 ** Secret key for channel creation
-* Finish  JSON content wrapper.
 * Add JSONP callback parameter.
 * Add client capability detection (possible streaming or close connection after every push).
 * Add custom payload for users (ex: {uid: 1729, login: "nff"})
