@@ -20,9 +20,11 @@
  */
 static dict *__channels = NULL;
 static pthread_mutex_t channels_lock;
+char *channel_creation_key = NULL;
 
 void
-channel_init() {
+channel_init(char *key) {
+	channel_creation_key = key;
 	if(NULL == __channels) {
 		pthread_mutex_init(&channels_lock, NULL);
 		__channels = dictCreate(&dictTypeCopyNoneFreeNone, NULL);

@@ -26,7 +26,7 @@ main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	channel_init();
+	channel_init(cfg->channel_key);
 	user_init();
 	server_run(cfg->threads, cfg->ip, cfg->port);
 

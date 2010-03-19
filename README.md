@@ -14,7 +14,7 @@ git submodule update
 3 - In a terminal, run:
 <pre>
 curl "http://127.0.0.1:1234/meta/authenticate?uid=1729&sid=my-secret-sid"
-curl "http://127.0.0.1:1234/meta/newchannel?name=public-channel&key=secret-key-used-to-create-channels"
+curl "http://127.0.0.1:1234/meta/newchannel?name=public-channel&key=c4rp2n3H5KzX"
 curl "http://127.0.0.1:1234/meta/connect?name=public-channel&uid=1729&sid=my-secret-sid"
 </pre>
 The last HTTP call (`/meta/connect`) is blocking.

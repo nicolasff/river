@@ -257,6 +257,7 @@ http_dispatch_meta_publish(struct http_request *req) {
 	return 0;
 }
 
+extern char *channel_creation_key;
 /**
  * Creates a new channel.
  * Parameters: name, key
@@ -267,12 +268,20 @@ http_dispatch_meta_newchannel(struct http_request *req) {
 	/* get (name, key) parameters */
 	/* TODO: check that the key is right. */
 
-	char *name = NULL;
+	char *name = NULL, *key = NULL;
 	dictEntry *de;
 
 	if((de = dictFind(req->get, "name"))) {
 		name = de->val;
 	}
+	if((de = dictFind(req->get, "key"))) {
+		key = de->val;
+	}
+	if(!key || strcmp(key, channel_creation_key) != 0) {
+		send_reply(req, 403);
+		return 0;
+	}
+
 
 	/* create channel */
 	if(NULL == channel_find(name)) {

@@ -36,7 +36,7 @@ struct p_channel {
 };
 
 void
-channel_init() ;
+channel_init(char *key) ;
 
 struct p_channel *
 channel_new(const char *name);
