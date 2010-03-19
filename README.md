@@ -30,7 +30,7 @@ curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of
 → That's it for the proof of concept!
 
 #### TODO
-* Add iframe page.
+* Complete iframe page.
 * Finish  JSON content wrapper.
 * Add JSONP callback parameter.
 * Add client capability detection (possible streaming or close connection after every push).

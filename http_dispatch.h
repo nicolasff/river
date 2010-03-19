@@ -7,6 +7,9 @@ int
 http_dispatch(struct http_request *req);
 
 int
+http_dispatch_root(struct http_request *req);
+
+int
 http_dispatch_meta_authenticate(struct http_request *req);
 
 int

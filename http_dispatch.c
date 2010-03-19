@@ -47,8 +47,57 @@ http_dispatch(struct http_request *req) {
 		return http_dispatch_meta_read(req);
 	} else if(req->path_len == 16 && 0 == strncmp(req->path, "/meta/newchannel", 16)) {
 		return http_dispatch_meta_newchannel(req);
+	} else if(req->path_len == 1 && 0 == strncmp(req->path, "/", 1)) {
+		return http_dispatch_root(req);
 	}
 
+	return 0;
+}
+
+
+/**
+ * Return generic page for iframe inclusion
+ */
+int
+http_dispatch_root(struct http_request *req) {
+
+	/* TODO: fill this with correct code */
+	char buffer[] = "\n\
+<html>\n\
+<body>\n\
+	iframe\n\
+	<script>\n\
+		document.domain = \"test.com\";\n\
+\n\
+		if (typeof XMLHttpRequest == \"undefined\") {\n\
+			XMLHttpRequest = function () {\n\
+				try { return new ActiveXObject(\"Msxml2.XMLHTTP.6.0\"); }\n\
+				catch (e1) {}\n\
+				try { return new ActiveXObject(\"Msxml2.XMLHTTP.3.0\"); }\n\
+				catch (e2) {}\n\
+				try { return new ActiveXObject(\"Msxml2.XMLHTTP\"); }\n\
+				catch (e3) {}\n\
+				try { return new ActiveXObject(\"Microsoft.XMLHTTP\"); }\n\
+				catch (e4) {}\n\
+				throw new Error(\"This browser does not support XMLHttpRequest.\");\n\
+			};\n\
+		}\n\
+\n\
+		function send() {\n\
+			var xhr = new XMLHttpRequest;\n\
+			xhr.open(\"get\", \"http://comet.test.com/comet.php?\", true);\n\
+			xhr.onreadystatechange = function(){\n\
+				if(xhr.readyState === 4) {\n\
+					parent.notice(xhr.responseText);\n\
+				}\n\
+			};\n\
+			xhr.send(null);\n\
+		}\n\
+	</script>\n\
+</body>\n\
+</html>";
+
+	http_response(req->fd, 200, "OK", buffer, sizeof(buffer)-1);
 	return 0;
 }
 
