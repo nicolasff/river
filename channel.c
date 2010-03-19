@@ -163,6 +163,7 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, time
 
 	struct p_channel_message *msg;
 	int pos, first, last, ret;
+	int success = 1, found = 0;
 
 	last = LOG_CUR(channel);
 	first = pos = LOG_PREV(last);
@@ -176,15 +177,15 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, time
 		}
 		first = pos;
 		pos = LOG_PREV(pos);
+		found = 1;
 	}
 
-	if(first +1 == last && channel->log_buffer[first].ts < timestamp) {
+	if(!found || (first +1 == last && channel->log_buffer[first].ts < timestamp)) {
 		return 1;
 	}
 
-	http_streaming_chunk(pcu->fd, "[", 1);
+	if(1 != http_streaming_chunk(pcu->fd, "[", 1)) success = 0;
 	for(pos = first; pos != last; pos = LOG_NEXT(pos)) {
-		int success = 1;
 
 		msg = &channel->log_buffer[pos];
 
@@ -194,22 +195,24 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, time
 		}
 
 		if(pos != LOG_PREV(last)) {
-			/* TODO: check return value for each call. */
 			ret = http_streaming_chunk(pcu->fd, ", ", 2);
 			if(ret != 2) {
 				success = 0;
 			}
 		}
 		if(0 == success) {
-			close(pcu->fd);
-			channel_del_connection(channel, pcu);
-			return 0;
+			break;
 		}
 
+
 	}
-	http_streaming_chunk(pcu->fd, "]", 1);
+	if(1 != http_streaming_chunk(pcu->fd, "]", 1)) success = 0;
 	http_streaming_end(pcu->fd);
 
+	if(0 == success) {
+		close(pcu->fd);
+		channel_del_connection(channel, pcu);
+	}
 	return 0;
 }
 
