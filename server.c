@@ -143,7 +143,9 @@ on_accept(int fd, short event, void *ptr) {
 	struct sockaddr addr;
 	socklen_t addrlen;
 	struct event_callback_data *cb_data;
+#if 0
 	struct event_timeout_data *timeout_data;
+#endif
 
 	if(event != EV_READ) {
 		return;

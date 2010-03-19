@@ -80,8 +80,8 @@ channel_free(struct p_channel * p) {
 	free(p);
 }
 
-int
-channel_add_user(struct p_channel *channel, struct p_user *user, int fd) {
+struct p_channel_user *
+channel_add_connection(struct p_channel *channel, struct p_user *user, int fd) {
 
 	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
 	pcu->user = user;
@@ -96,14 +96,19 @@ channel_add_user(struct p_channel *channel, struct p_user *user, int fd) {
 	pcu->next = channel->user_list;
 	channel->user_list = pcu;
 
+	printf("fd %d added to the channel\n", fd);
 	CHANNEL_UNLOCK(channel);
-	return 0;
+
+	return pcu;
 }
 
 void
-channel_del_user(struct p_channel *channel, struct p_channel_user *pcu) {
+channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu) {
 
 	/* remove from list */
+	if(pcu->next) {
+		pcu->next->prev = pcu->prev;
+	}
 	if(pcu->prev) {
 		pcu->prev->next = pcu->next;
 	} else {
@@ -112,6 +117,7 @@ channel_del_user(struct p_channel *channel, struct p_channel_user *pcu) {
 			channel->user_list->prev = NULL;
 		}
 	}
+	printf("fd %d removed from the channel\n", pcu->fd);
 
 	free(pcu);
 }
@@ -145,24 +151,26 @@ channel_write(struct p_channel *channel, long uid, const char *data, size_t data
 	for(pcu = channel->user_list; pcu; pcu = pcu->next) {
 
 		/* write message to connected user */
+		printf("sending json to fd %d\n", pcu->fd);
 		int ret = http_streaming_chunk(pcu->fd, msg->data, msg->data_len);
 		if(ret != (int)msg->data_len) { /* failed write */
-			/* TODO: check that everything is cleaned. */
+			printf("failed write, closing fd %d\n", pcu->fd);
 			close(pcu->fd);
-			channel_del_user(channel, pcu);
+			channel_del_connection(channel, pcu);
 		}
 	}
 	CHANNEL_UNLOCK(channel);
 }
 
 int
-channel_catchup_user(struct p_channel *channel, int fd, time_t timestamp) {
+channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, time_t timestamp) {
 
 	struct p_channel_message *msg;
-	int pos, first, last;
+	int pos, first, last, ret;
 
 	last = LOG_CUR(channel);
 	first = pos = LOG_PREV(last);
+	printf("catch-up on fd %d\n", pcu->fd);
 
 	for(;;) {
 		msg = &channel->log_buffer[pos];
@@ -179,21 +187,34 @@ channel_catchup_user(struct p_channel *channel, int fd, time_t timestamp) {
 		return 1;
 	}
 
-	http_streaming_chunk(fd, "[", 1);
+	http_streaming_chunk(pcu->fd, "[", 1);
 	for(pos = first; pos != last; pos = LOG_NEXT(pos)) {
+		int success = 1;
 
 		msg = &channel->log_buffer[pos];
 
-		http_streaming_chunk(fd, msg->data, msg->data_len);
+		ret = http_streaming_chunk(pcu->fd, msg->data, msg->data_len);
+		if(ret != (int)msg->data_len) { /* failed write */
+			success = 0;
+		}
 
 		if(pos != LOG_PREV(last)) {
 			/* TODO: check return value for each call. */
-			http_streaming_chunk(fd, ", ", 2);
+			ret = http_streaming_chunk(pcu->fd, ", ", 2);
+			if(ret != 2) {
+				success = 0;
+			}
+		}
+		if(0 == success) {
+			close(pcu->fd);
+			channel_del_connection(channel, pcu);
+			printf("failed write, closing fd %d\n", pcu->fd);
+			return 0;
 		}
 
 	}
-	http_streaming_chunk(fd, "]", 1);
-	http_streaming_end(fd);
+	http_streaming_chunk(pcu->fd, "]", 1);
+	http_streaming_end(pcu->fd);
 
 	return 0;
 }
