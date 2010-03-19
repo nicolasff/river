@@ -31,13 +31,14 @@ curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of
 
 #### TODO
 * Remove user authentication?
+* Remove user subscriptions?
+* Finish  JSON content wrapper.
+* Add JSONP callback parameter.
+* Add client capability detection (possible streaming or close connection after every push).
 * Add custom payload for users (ex: {uid: 1729, login: "nff"})
-* Remove user subscriptions
 * A lot of refactoring in server.c and http_dispatch.c
 * Lots of cleanup code.
 * Remove dead code.
 * Add timeouts.
 * Add enums for returns messages, especially in http_dispatch.{c,h}
 * Prepare a better demo.
-* Finish  JSON content wrapper.
-* Add client capability detection (possible streaming or close connection after every push).
