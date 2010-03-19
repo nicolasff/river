@@ -17,7 +17,6 @@ conf_read(const char *filename) {
 	}
 
 	conf = calloc(1, sizeof(struct conf));
-	conf->threads = 8; /* default */
 
 	while(!feof(f)) {
 		char buffer[100], *ret;
@@ -48,6 +47,20 @@ conf_read(const char *filename) {
 		}
 	}
 	fclose(f);
+
+	/* default values */
+	if(!conf->ip) {
+		conf->ip = strdup("127.0.0.1");
+	}
+	if(!conf->threads) {
+		conf->threads = 8;
+	}
+	if(!conf->domain) {
+		conf->domain = strdup("127.0.0.1");
+	}
+	if(!conf->parent_domain) {
+		conf->parent_domain = strdup("127.0.0.1");
+	}
 
 	return conf;
 }
