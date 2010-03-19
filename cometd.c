@@ -28,7 +28,7 @@ main(int argc, char *argv[]) {
 
 	channel_init();
 	user_init();
-	server_run(NB_WORKERS, 1234);
+	server_run(cfg->threads, cfg->ip, cfg->port);
 
 	while(1) {
 		sleep(60);

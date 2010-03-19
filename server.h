@@ -24,7 +24,7 @@ struct dispatcher_info {
 };
 
 int
-server_run(short nb_workers, short port);
+server_run(short nb_workers, const char *ip, short port);
 
 #endif /* COMET_SERVER_H */
 

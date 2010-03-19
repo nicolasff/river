@@ -17,12 +17,16 @@ conf_read(const char *filename) {
 	}
 
 	conf = calloc(1, sizeof(struct conf));
+	conf->threads = 8; /* default */
 
 	while(!feof(f)) {
 		char buffer[100], *ret;
 		memset(buffer, 0, sizeof(buffer));
 		if(!(ret = fgets(buffer, sizeof(buffer)-1, f))) {
 			break;
+		}
+		if(*ret == '#') { /* comments */
+			continue;
 		}
 
 		if(*ret != 0) {
@@ -33,6 +37,8 @@ conf_read(const char *filename) {
 			conf->ip = strdup(ret + 3);
 		} else if(strncmp(ret, "port ", 5) == 0) {
 			conf->port = (short)atoi(ret + 5);
+		} else if(strncmp(ret, "threads ", 8) == 0) {
+			conf->threads = (short)atoi(ret + 8);
 		} else if(strncmp(ret, "domain ", 7) == 0) {
 			conf->domain = strdup(ret + 7);
 		} else if(strncmp(ret, "parentdomain ", 13) == 0) {

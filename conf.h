@@ -11,6 +11,8 @@ struct conf {
 	char *parent_domain;
 
 	char *channel_key;
+
+	int threads;
 };
 
 struct conf *

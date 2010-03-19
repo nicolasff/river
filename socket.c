@@ -12,7 +12,7 @@
  * Sets up a non-blocking socket
  */
 int
-socket_setup(short port) {
+socket_setup(const char *ip, short port) {
 
 	int reuse = 1;
 	struct sockaddr_in addr;
@@ -20,8 +20,9 @@ socket_setup(short port) {
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
+
 	memset(&(addr.sin_addr), 0, sizeof(addr.sin_addr));
-	addr.sin_addr.s_addr = htonl(0);
+	addr.sin_addr.s_addr = inet_addr(ip);
 
 	/* this sad list of tests could use a Maybe monad... */
 

@@ -150,7 +150,7 @@ on_accept(int fd, short event, void *ptr) {
  * Server main function. Doesn't return as long as we're up.
  */
 int
-server_run(short nb_workers, short port) {
+server_run(short nb_workers, const char *ip, short port) {
 
 	int fd, i;
 	struct event_base *base;
@@ -162,7 +162,7 @@ server_run(short nb_workers, short port) {
 	q = queue_new();
 
 	/* setup socket + libevent */
-	fd = socket_setup(port);
+	fd = socket_setup(ip, port);
 	base = event_init();
 	event_set(&ev, fd, EV_READ | EV_PERSIST, on_accept, &di);
 	event_base_set(base, &ev);
