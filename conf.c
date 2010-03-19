@@ -1,0 +1,58 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "conf.h"
+
+
+struct conf *
+conf_read(const char *filename) {
+
+	struct conf *conf;
+
+	FILE *f = fopen(filename, "r");
+
+	if(!f) {
+		return NULL;
+	}
+
+	conf = calloc(1, sizeof(struct conf));
+
+	while(!feof(f)) {
+		char buffer[100], *ret;
+		memset(buffer, 0, sizeof(buffer));
+		if(!(ret = fgets(buffer, sizeof(buffer)-1, f))) {
+			break;
+		}
+
+		if(*ret != 0) {
+			ret[strlen(ret)-1] = 0; /* remove new line */
+		}
+		
+		if(strncmp(ret, "ip ", 3) == 0) {
+			conf->ip = strdup(ret + 3);
+		} else if(strncmp(ret, "port ", 5) == 0) {
+			conf->port = (short)atoi(ret + 5);
+		} else if(strncmp(ret, "domain ", 7) == 0) {
+			conf->domain = strdup(ret + 7);
+		} else if(strncmp(ret, "parentdomain ", 13) == 0) {
+			conf->parent_domain = strdup(ret + 13);
+		} else if(strncmp(ret, "channelkey ", 11) == 0) {
+			conf->channel_key = strdup(ret + 11);
+		}
+	}
+	fclose(f);
+
+	return conf;
+}
+
+void
+conf_free(struct conf *conf) {
+
+	free(conf->ip);
+	free(conf->domain);
+	free(conf->parent_domain);
+	free(conf->channel_key);
+
+	free(conf);
+}
