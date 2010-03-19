@@ -10,12 +10,6 @@ struct event_callback_data {
 	struct event ev;
 };
 
-struct event_timeout_data {
-	struct event *ev;
-	struct timeval tv;
-	int fd;
-};
-
 struct worker_info {
 	pthread_t 	thread;
 	pthread_cond_t	*cond;

@@ -100,20 +100,6 @@ worker_main(void *ptr) {
 }
 
 /**
- * Called when we get a timeout from the client
- */
-void
-on_client_timeout(int fd, short event, void *ptr) {
-	(void)event;
-	(void)fd;
-	struct event_timeout_data *timeout_data = ptr;
-
-	event_del(timeout_data->ev);
-	close(timeout_data->fd);
-	free(timeout_data);
-}
-
-/**
  * Called when we can read an HTTP request from a client.
  */
 void
@@ -143,9 +129,6 @@ on_accept(int fd, short event, void *ptr) {
 	struct sockaddr addr;
 	socklen_t addrlen;
 	struct event_callback_data *cb_data;
-#if 0
-	struct event_timeout_data *timeout_data;
-#endif
 
 	if(event != EV_READ) {
 		return;
@@ -161,19 +144,6 @@ on_accept(int fd, short event, void *ptr) {
 	event_set(&cb_data->ev, client_fd, EV_READ, on_client_data, cb_data);
 	event_base_set(di->base, &cb_data->ev);
 	event_add(&cb_data->ev, NULL);
-#if 0
-
-	/* alloc timeout data */
-	timeout_data = calloc(1, sizeof(struct event_timeout_data));
-	timeout_data->ev = &cb_data->ev;
-	timeout_data->fd = client_fd;
-
-	/* add timeout event */
-	timeout_set(timeout_data->ev, on_client_timeout, timeout_data);
-	timeout_data->tv.tv_sec = 3;
-	timeout_data->tv.tv_usec = 0;
-	timeout_add(&cb_data->ev, &timeout_data->tv);
-#endif
 }
 
 /**
