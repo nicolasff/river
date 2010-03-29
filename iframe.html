@@ -48,38 +48,74 @@
 
 						// check if we've read anything before.
 						var curLen = data.length;
-						var msg = data.substr(comet.pos);
+						do {
+							var msg = cutMessage(data.substr(comet.pos));
+							// console.log("got: ", msg, "length=", msg.length);
+							// console.log("following: ", data.substr(comet.pos + msg.length, 10));
 
-						try {
-							var obj = JSON.parse(msg);
-							comet.pos = data.length;
-					//		console.log(msg);
-							switch(obj[0]) {
-								case 'msg':
-									if(obj[1].channel == channel) {
-										onMsg(obj[1]);
-									} else { // wrong channel, raise error? (TODO)
+							try {
+								var obj = JSON.parse(msg);
+								comet.pos += msg.length;
+								switch(obj[0]) {
+									case 'msg':
+										if(obj[1].channel == channel) {
+											onMsg(obj[1]);
+										} else { // wrong channel, raise error? (TODO)
 
-									}
-									break;
+										}
+										break;
 
-								case 'meta':
-									// TODO: handle service messages
-									break;
+									case 'meta':
+										// TODO: handle service messages
+										break;
+								}
+							} catch(e) {
+								console.log(e);
+								console.log(msg);
+								comet.connect(channel, onMsg);
 							}
-						} catch(e) {
-							comet.connect(channel, onMsg);
-						}
+						} while(comet.pos + msg.length != data.length);
 
-						}
-						if(xhr.readyState == 4) { // reconnect
-							comet.connect(channel, onMsg);
-						}
+					}
+					if(xhr.readyState == 4) { // reconnect
+						comet.connect(channel, onMsg);
 					}
 				};
 				xhr.send(null);
 			}
 		};
+
+		function cutMessage(msg) {
+			if(msg[0] != '[') {
+				return null;
+			}
+			var pos, depth = 0;
+			var in_string = false;
+			var len = msg.length;
+
+			for(pos = 0; pos < len; pos++) {
+				switch(msg[pos]) {
+					case '"':
+						in_string = !in_string;
+						if(in_string) {
+							continue;
+						}
+						break;
+					case '[':
+						depth++;
+						break;
+					case ']':
+						depth--;
+						break;
+				}
+				if(depth == 0) {
+					return msg.substr(0, pos+1);
+				}
+			}
+
+			return null;
+
+		}
 	</script>
 	
 	
