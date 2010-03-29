@@ -40,8 +40,10 @@ conf_read(const char *filename) {
 			conf->threads = (short)atoi(ret + 8);
 		} else if(strncmp(ret, "domain ", 7) == 0) {
 			conf->domain = strdup(ret + 7);
-		} else if(strncmp(ret, "parentdomain ", 13) == 0) {
-			conf->parent_domain = strdup(ret + 13);
+			conf->domain_len = strlen(conf->domain);
+		} else if(strncmp(ret, "commondomain ", 13) == 0) {
+			conf->common_domain = strdup(ret + 13);
+			conf->common_domain_len = strlen(conf->common_domain);
 		} else if(strncmp(ret, "channelkey ", 11) == 0) {
 			conf->channel_key = strdup(ret + 11);
 		}
@@ -58,8 +60,8 @@ conf_read(const char *filename) {
 	if(!conf->domain) {
 		conf->domain = strdup("127.0.0.1");
 	}
-	if(!conf->parent_domain) {
-		conf->parent_domain = strdup("127.0.0.1");
+	if(!conf->common_domain) {
+		conf->common_domain = strdup("127.0.0.1");
 	}
 
 	return conf;
@@ -70,7 +72,7 @@ conf_free(struct conf *conf) {
 
 	free(conf->ip);
 	free(conf->domain);
-	free(conf->parent_domain);
+	free(conf->common_domain);
 	free(conf->channel_key);
 
 	free(conf);

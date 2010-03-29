@@ -8,7 +8,10 @@ struct conf {
 	short port;
 
 	char *domain;
-	char *parent_domain;
+	size_t domain_len;
+
+	char *common_domain;
+	size_t common_domain_len;
 
 	char *channel_key;
 

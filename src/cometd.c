@@ -5,6 +5,7 @@
 #include "server.h"
 #include "user.h"
 #include "channel.h"
+#include "http_dispatch.h"
 #include "conf.h"
 #define NB_WORKERS	8
 
@@ -26,6 +27,7 @@ main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 
+	http_init(cfg);
 	channel_init(cfg->channel_key);
 	user_init();
 	server_run(cfg->threads, cfg->ip, cfg->port);

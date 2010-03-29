@@ -31,12 +31,15 @@ curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of
 
 #### TODO
 * Complete iframe page.
-* Add JSONP callback parameter.
+** Add connection timeout → reconnect after N seconds
+** Add timeout on reconnect
 * Add client capability detection (possible streaming or close connection after every push).
 * Add custom payload for users (ex: {uid: 1729, login: "nff"})
+* Add JSONP callback parameter.
+* Add support for HTML5 WebSockets
 * Remove user authentication?
 * Remove user subscriptions?
 * Lots of cleanup code.
-* Add timeouts.
+* Add timeouts on the server side
 * Add enums for returns messages, especially in http_dispatch.{c,h}
 * Prepare a better demo.

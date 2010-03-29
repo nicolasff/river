@@ -2,6 +2,10 @@
 #define COMETD_HTTP_DISPATCH_H
 
 struct http_request;
+struct conf;
+
+void
+http_init(struct conf *cfg);
 
 int
 http_dispatch(struct http_request *req);

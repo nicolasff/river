@@ -13,7 +13,15 @@
 #include "message.h"
 #include "http.h"
 #include "dict.h"
+#include "conf.h"
 
+static struct conf *__cfg;
+
+void
+http_init(struct conf *cfg) {
+
+	__cfg = cfg;
+}
 
 static void
 send_reply(struct http_request *req, int error) {
@@ -61,8 +69,19 @@ http_dispatch(struct http_request *req) {
 int
 http_dispatch_root(struct http_request *req) {
 
-	FILE *f  = fopen("iframe.html", "r");
+	char buffer_start[] = "<html><body><script>\ndocument.domain=\"";
+	char buffer_domain[] = "\";\n";
+	char buffer_end[] = "</script></body></html>\n";
+
+	FILE *f  = fopen("iframe.js", "r");
+
 	http_streaming_start(req->fd, 200, "OK");
+	http_streaming_chunk(req->fd, buffer_start, sizeof(buffer_start)-1);
+	if(__cfg->common_domain) {
+		http_streaming_chunk(req->fd, __cfg->common_domain, __cfg->common_domain_len);
+	}
+	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
+
 	while(!feof(f)) {
 		char line[1024], *p;
 		p = fgets(line, sizeof(line), f);
@@ -71,6 +90,8 @@ http_dispatch_root(struct http_request *req) {
 		}
 		http_streaming_chunk(req->fd, p, strlen(p));
 	}
+
+	http_streaming_chunk(req->fd, buffer_end, sizeof(buffer_end)-1);
 	http_streaming_end(req->fd);
 	
 	return 0;
