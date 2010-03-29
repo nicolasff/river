@@ -1,12 +1,9 @@
 OUT=cometd
-OBJS=server.o socket.o user.o http_dispatch.o cometd.o channel.o message.o queue.o http-parser/http_parser.o http.o dict.o json.o conf.o
-CFLAGS=-O3 -Wall -Wextra -Ihttp-parser
+OBJS=src/server.o src/socket.o src/user.o src/http_dispatch.o src/cometd.o src/channel.o src/message.o src/queue.o src/http-parser/http_parser.o src/http.o src/dict.o src/json.o src/conf.o
+CFLAGS=-O3 -Wall -Wextra -Isrc/http-parser
 LDFLAGS=-levent -lpthread
 
 all: $(OUT) Makefile
-
-queue-demo: queue-demo.o queue.o http-parser/http_parser.o Makefile
-	$(CC) $(LDFLAGS) -o queue-demo queue-demo.o queue.o http-parser/http_parser.o
 
 $(OUT): $(OBJS) Makefile
 	$(CC) $(LDFLAGS) -o $(OUT) $(OBJS)
