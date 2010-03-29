@@ -61,43 +61,18 @@ http_dispatch(struct http_request *req) {
 int
 http_dispatch_root(struct http_request *req) {
 
-	/* TODO: fill this with correct code */
-	char buffer[] = "\n\
-<html>\n\
-<body>\n\
-	iframe\n\
-	<script>\n\
-		document.domain = \"test.com\";\n\
-\n\
-		if (typeof XMLHttpRequest == \"undefined\") {\n\
-			XMLHttpRequest = function () {\n\
-				try { return new ActiveXObject(\"Msxml2.XMLHTTP.6.0\"); }\n\
-				catch (e1) {}\n\
-				try { return new ActiveXObject(\"Msxml2.XMLHTTP.3.0\"); }\n\
-				catch (e2) {}\n\
-				try { return new ActiveXObject(\"Msxml2.XMLHTTP\"); }\n\
-				catch (e3) {}\n\
-				try { return new ActiveXObject(\"Microsoft.XMLHTTP\"); }\n\
-				catch (e4) {}\n\
-				throw new Error(\"This browser does not support XMLHttpRequest.\");\n\
-			};\n\
-		}\n\
-\n\
-		function send() {\n\
-			var xhr = new XMLHttpRequest;\n\
-			xhr.open(\"get\", \"http://comet.test.com/comet.php?\", true);\n\
-			xhr.onreadystatechange = function(){\n\
-				if(xhr.readyState === 4) {\n\
-					parent.notice(xhr.responseText);\n\
-				}\n\
-			};\n\
-			xhr.send(null);\n\
-		}\n\
-	</script>\n\
-</body>\n\
-</html>";
-
-	http_response(req->fd, 200, "OK", buffer, sizeof(buffer)-1);
+	FILE *f  = fopen("iframe.html", "r");
+	http_streaming_start(req->fd, 200, "OK");
+	while(!feof(f)) {
+		char line[1024], *p;
+		p = fgets(line, sizeof(line), f);
+		if(!p) {
+			break;
+		}
+		http_streaming_chunk(req->fd, p, strlen(p));
+	}
+	http_streaming_end(req->fd);
+	
 	return 0;
 }
 
@@ -124,7 +99,11 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 	}
 
 	/* Look for user or create it */
-	if(NULL == de || NULL == user_find(uid)) {
+	if((user = user_find(uid))) {/* user already exists */
+		if(sid && 0 == strcmp(user->sid, sid)) {
+			success = 1;
+		}
+	} else { /* new user */
 		user = user_new(uid, sid);
 		if(user) {
 			user->fd = req->fd;
@@ -132,6 +111,7 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 			success = 1;
 		} 
 	}
+
 
 	// reply
 	if(success) {
@@ -237,8 +217,12 @@ http_dispatch_meta_publish(struct http_request *req) {
 	}
 
 	/* get (uid, sid) parameters from the sender, authenticate him */
-	user = user_find(uid);
-	if(0 != strncmp(user->sid, sid, sid_len)) {
+	if((user = user_find(uid))) {
+		if(0 != strncmp(user->sid, sid, sid_len)) {
+			send_reply(req, 403);
+			return 0;
+		}
+	} else { /* no such user */
 		send_reply(req, 403);
 		return 0;
 	}

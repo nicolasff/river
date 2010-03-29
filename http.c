@@ -35,9 +35,9 @@ int
 http_streaming_chunk(int fd, const char *data, size_t len) {
 
 	int tmp, ret;
-	dprintf(fd, "%X\r\n", (unsigned int)(2+len));
+	dprintf(fd, "%X\r\n", (unsigned int)len);
 	ret = write(fd, data, len);
-	tmp = write(fd, "\r\n\r\n", 4);
+	tmp = write(fd, "\r\n", 2);
 	(void)tmp;
 
 	return ret;

@@ -1,0 +1,87 @@
+<html>
+<body>
+	iframe from cometd.
+	<script>
+		document.domain = "test.com";
+
+		if (typeof XMLHttpRequest == "undefined") {
+			XMLHttpRequest = function () {
+				try { return new ActiveXObject("Msxml2.XMLHTTP.6.0"); }
+				catch (e1) {}
+				try { return new ActiveXObject("Msxml2.XMLHTTP.3.0"); }
+				catch (e2) {}
+				try { return new ActiveXObject("Msxml2.XMLHTTP"); }
+				catch (e3) {}
+				try { return new ActiveXObject("Microsoft.XMLHTTP"); }
+				catch (e4) {}
+				throw new Error("This browser does not support XMLHttpRequest.");
+			};
+		}
+
+		function ajax(url) {
+			var xhr = new XMLHttpRequest;
+			xhr.open("get",url, true);
+			xhr.send(null);
+		}
+
+		function CometClient(host){
+			this.host = host;
+			this.pos = 0;
+
+			this.auth = function(uid, sid) {
+				
+				this.uid = uid;
+				this.sid = sid;
+
+				url = "http://"+this.host+"/meta/authenticate?uid="+this.uid+"&sid="+this.sid;
+				ajax(url);
+			}
+
+			this.connect = function(channel, onMsg) {
+				
+				var xhr = new XMLHttpRequest;
+				xhr.open("get", "http://"+this.host+"/meta/connect?name="+channel+"&uid="+this.uid+"&sid="+this.sid, true);
+				var comet = this;
+				xhr.onreadystatechange = function() {
+					var data = xhr.responseText;
+					if(xhr.readyState === 3 || xhr.readyState == 4) {
+
+						// check if we've read anything before.
+						var curLen = data.length;
+						var msg = data.substr(comet.pos);
+
+						try {
+							var obj = JSON.parse(msg);
+							comet.pos = data.length;
+					//		console.log(msg);
+							switch(obj[0]) {
+								case 'msg':
+									if(obj[1].channel == channel) {
+										onMsg(obj[1]);
+									} else { // wrong channel, raise error? (TODO)
+
+									}
+									break;
+
+								case 'meta':
+									// TODO: handle service messages
+									break;
+							}
+						} catch(e) {
+							comet.connect(channel, onMsg);
+						}
+
+						}
+						if(xhr.readyState == 4) { // reconnect
+							comet.connect(channel, onMsg);
+						}
+					}
+				};
+				xhr.send(null);
+			}
+		};
+	</script>
+	
+	
+</body>
+</html>

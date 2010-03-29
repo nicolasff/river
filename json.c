@@ -42,10 +42,10 @@ json_msg(const char *channel, const long uid, const time_t ts, const char *data,
 	int needed = 0;
 	char *buffer = NULL;
 
-	char fmt[] = "{msg, {channel: \"%s\", "
-			"uid: %ld, "
-			"time: %ld, "
-			"data: \"%s\"}}";
+	char fmt[] = "[\"msg\", {\"channel\": \"%s\", "
+			"\"uid\": %ld, "
+			"\"time\": %ld, "
+			"\"data\": \"%s\"}]";
 	char *esc_data, *esc_channel;
 
 	esc_data = json_escape(data, strlen(data), NULL);
