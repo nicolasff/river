@@ -109,7 +109,8 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 	int success = 0;
 
 	long uid = 0;
-	char *sid = NULL;
+	char *sid = NULL, *payload = NULL;
+	size_t payload_len = 0;
 	dictEntry *de;
 
 	if((de = dictFind(req->get, "uid"))) {
@@ -117,6 +118,10 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 	}
 	if((de = dictFind(req->get, "sid"))) {
 		sid = de->val;
+	}
+	if((de = dictFind(req->get, "payload"))) {
+		payload = de->val;
+		payload_len = de->size;
 	}
 
 	/* Look for user or create it */
@@ -128,6 +133,10 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 		user = user_new(uid, sid);
 		if(user) {
 			user->fd = req->fd;
+
+			user->payload = payload;
+			user->payload_len = payload_len;
+
 			user_save(user);
 			success = 1;
 		} 

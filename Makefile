@@ -1,6 +1,6 @@
 OUT=cometd
 OBJS=src/server.o src/socket.o src/user.o src/http_dispatch.o src/cometd.o src/channel.o src/message.o src/queue.o src/http-parser/http_parser.o src/http.o src/dict.o src/json.o src/conf.o
-CFLAGS=-ggdb -Wall -Wextra -Isrc/http-parser
+CFLAGS=-O3 -ggdb -Wall -Wextra -Isrc/http-parser
 LDFLAGS=-levent -lpthread
 
 all: $(OUT) Makefile

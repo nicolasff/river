@@ -15,6 +15,9 @@ struct p_user {
 	long uid; /* user id, unique to this user */
 	char * sid; /* session id */
 
+	char *payload; 	/* custom payload for users */
+	size_t payload_len;
+
 	pthread_mutex_t lock;
 };
 

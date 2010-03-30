@@ -67,6 +67,7 @@ user_free(long uid) {
 
 	if(p) {
 		free(p->sid);
+		free(p->payload);
 		free(p);
 	}
 }
