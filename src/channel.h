@@ -16,7 +16,7 @@ struct p_channel_user {
 
 struct p_channel_message {
 
-	time_t ts; /* timestamp */
+	unsigned long long seq; /* sequence number */
 
 	char *data; /* message contents */
 	size_t data_len;
@@ -26,6 +26,8 @@ struct p_channel_message {
 
 struct p_channel {
 	char *name;
+
+	unsigned long long seq;
 
 	struct p_channel_user *user_list;
 
@@ -57,7 +59,7 @@ void
 channel_write(struct p_channel *channel, long uid, const char *data, size_t data_len);
 
 int
-channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, time_t timestamp);
+channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsigned long long seq);
 
 #endif /* COMETD_CHANNEL_H */
 

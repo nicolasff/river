@@ -134,13 +134,14 @@ channel_write(struct p_channel *channel, long uid, const char *data, size_t data
 	/* get next pointer to a log message. */
 	msg = &channel->log_buffer[channel->log_pos];
 
-	msg->ts = time(NULL); /* timestamp */
+	/* use channel sequence number */
+	msg->seq = ++channel->seq;
 
 	free(msg->data); /* free old log message */
 
 	/* copy log data */
 	msg->data = calloc(data_len, 1);
-	json = json_msg(channel->name, uid, msg->ts, data, &msg->data_len);
+	json = json_msg(channel->name, uid, msg->seq, data, &msg->data_len);
 	msg->data = json;
 	msg->uid = uid;
 
@@ -161,7 +162,7 @@ channel_write(struct p_channel *channel, long uid, const char *data, size_t data
 }
 
 int
-channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, time_t timestamp) {
+channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsigned long long seq) {
 
 	struct p_channel_message *msg;
 	int pos, first, last, ret;
@@ -173,7 +174,7 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, time
 	for(;;) {
 		msg = &channel->log_buffer[pos];
 
-		if(last == LOG_PREV(pos) || !msg->ts || msg->ts < timestamp) {
+		if(last == LOG_PREV(pos) || !msg->seq || msg->seq <= seq) {
 			/* found all we could. */
 			break;
 		}
@@ -182,11 +183,10 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, time
 		found = 1;
 	}
 
-	if(!found || (first +1 == last && channel->log_buffer[first].ts < timestamp)) {
+	if(!found || (first +1 == last && channel->log_buffer[first].seq <= seq)) {
 		return 1;
 	}
 
-	if(1 != http_streaming_chunk(pcu->fd, "[", 1)) success = 0;
 	for(pos = first; pos != last; pos = LOG_NEXT(pos)) {
 
 		msg = &channel->log_buffer[pos];
@@ -194,22 +194,9 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, time
 		ret = http_streaming_chunk(pcu->fd, msg->data, msg->data_len);
 		if(ret != (int)msg->data_len) { /* failed write */
 			success = 0;
-		}
-
-		if(pos != LOG_PREV(last)) {
-			ret = http_streaming_chunk(pcu->fd, ", ", 2);
-			if(ret != 2) {
-				success = 0;
-			}
-		}
-		if(0 == success) {
 			break;
 		}
-
-
 	}
-	if(1 != http_streaming_chunk(pcu->fd, "]", 1)) success = 0;
-	http_streaming_end(pcu->fd);
 
 	if(0 == success) {
 		close(pcu->fd);

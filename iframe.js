@@ -72,8 +72,10 @@ function CometClient(host){
 	}
 
 	this.reconnect = function() {
-		console.log("CLOSE");
-		this.xhr.abort();
+		// console.log("CLOSE");
+		try {
+			this.xhr.abort();
+		} catch(e) {}
 	}
 
 	this.connect = function(channel, onMsg, onMeta) {
@@ -84,11 +86,18 @@ function CometClient(host){
 
 		comet.xhr.open("get", "http://"+this.host+"/meta/connect?name="+channel+"&uid="+this.uid+"&sid="+this.sid+"&time="+this.timestamp, true);
 		comet.xhr.onreadystatechange = function() {
+
+			if(comet.xhr.readyState == 4 && comet.xhr.status != 200) { // error...
+				// console.log("reconnecting in one second...");
+				window.setTimeout(function() {comet.connect(channel, onMsg, onMeta);}, 1000); // reconnect in 1 second.
+				return;
+			}
+
 			var data = comet.xhr.responseText;
 			if(comet.xhr.readyState === 3 || comet.xhr.readyState == 4) {
 
 				if(data.length == 0) {
-					console.log("readyState=", comet.xhr.readyState, ", length=0");
+					// console.log("readyState=", comet.xhr.readyState, ", length=0");
 					comet.connect(channel, onMsg, onMeta);
 					return;
 				}
@@ -117,16 +126,16 @@ function CometClient(host){
 								break;
 						}
 					} catch(e) { // TODO: how do we handle errors?
-						console.log("fail line 66:", e);
+						// console.log("fail line 66:", e);
 						comet.reconnect();
 					}
 				// there might be more in this event: consume the whole string.
-				console.log("comet.pos=", comet.pos, ", msg.length=", msg.length, ", data.length=", data.length);
+				// console.log("comet.pos=", comet.pos, ", msg.length=", msg.length, ", data.length=", data.length);
 				} while(comet.pos < data.length);
 
 			}
 			if(comet.xhr.readyState == 4) { // reconnect
-				console.log("readyState=4");
+				// console.log("readyState=4");
 				comet.connect(channel, onMsg, onMeta);
 			}
 		};
