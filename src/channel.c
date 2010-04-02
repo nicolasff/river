@@ -84,12 +84,12 @@ channel_free(struct p_channel * p) {
 }
 
 struct p_channel_user *
-channel_add_connection(struct p_channel *channel, struct p_user *user, int fd) {
+channel_add_connection(struct p_channel *channel, struct p_user *user, int fd, int keep_connected) {
 
 	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
 	pcu->user = user;
-
 	pcu->fd = fd;
+	pcu->keep_connected = keep_connected;
 
 	CHANNEL_LOCK(channel);
 
@@ -158,6 +158,9 @@ channel_write(struct p_channel *channel, long uid, const char *data, size_t data
 		if(ret != (int)msg->data_len) { /* failed write */
 			close(pcu->fd);
 			channel_del_connection(channel, pcu);
+		} else if(!pcu->keep_connected) {
+			http_streaming_end(pcu->fd);
+			channel_del_connection(channel, pcu);
 		}
 	}
 	CHANNEL_UNLOCK(channel);
@@ -202,6 +205,9 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsi
 
 	if(0 == success) {
 		close(pcu->fd);
+		channel_del_connection(channel, pcu);
+	} else if(!pcu->keep_connected) {
+		http_streaming_end(pcu->fd);
 		channel_del_connection(channel, pcu);
 	}
 	return 0;

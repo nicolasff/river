@@ -154,7 +154,7 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 /**
  * Connect user to a channel. This call is blocking, waiting for new data.
  * 
- * Parameters: uid, sid, name, [seq]
+ * Parameters: uid, sid, name, [seq], [keep]
  */
 int
 http_dispatch_meta_read(struct http_request *req) {
@@ -163,6 +163,7 @@ http_dispatch_meta_read(struct http_request *req) {
 	struct p_user *user = NULL;
 	struct p_channel *channel = NULL;
 
+	int keep_connected = 1;
 	long uid = 0;
 	unsigned long long seq = 0;
 	char *sid = NULL, *name = NULL;
@@ -179,6 +180,9 @@ http_dispatch_meta_read(struct http_request *req) {
 	}
 	if((de = dictFind(req->get, "seq"))) { /* optional */
 		seq = atol(de->val);
+	}
+	if((de = dictFind(req->get, "keep"))) { /* optional */
+		keep_connected = atol(de->val);
 	}
 
 	/* find user. */
@@ -199,7 +203,7 @@ http_dispatch_meta_read(struct http_request *req) {
 
 	if(success) {
 		struct p_channel_user *pcu;
-		pcu = channel_add_connection(channel, user, req->fd);
+		pcu = channel_add_connection(channel, user, req->fd, keep_connected);
 		http_streaming_start(req->fd, 200, "OK");
 		if(seq) {
 			return channel_catchup_user(channel, pcu, seq);

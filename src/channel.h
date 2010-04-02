@@ -9,6 +9,7 @@ struct p_user;
 struct p_channel_user {
 	struct p_user *user;
 	int fd;
+	int keep_connected;
 
 	struct p_channel_user *prev;
 	struct p_channel_user *next;
@@ -50,7 +51,7 @@ struct p_channel *
 channel_find(const char *name);
 
 struct p_channel_user *
-channel_add_connection(struct p_channel *, struct p_user *, int fd) ;
+channel_add_connection(struct p_channel *, struct p_user *, int fd, int keep_connected) ;
 
 void
 channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu);

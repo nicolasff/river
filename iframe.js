@@ -25,7 +25,7 @@ function ajax(url) {
  */
 function cutMessage(msg) {
 
-	if(msg.length < 2 || msg[0] != '[') {
+	if(msg.length < 2 || msg.charAt(0) != '[') {
 		return "";
 	}
 	var pos;
@@ -34,7 +34,7 @@ function cutMessage(msg) {
 	var len = msg.length;
 
 	for(pos = 0; pos < len; pos++) {
-		if(msg[pos] == '"') {
+		if(msg.charAt(pos) == '"') {
 			in_string = !in_string;
 			continue;
 		}
@@ -42,9 +42,9 @@ function cutMessage(msg) {
 			continue;
 		}
 		// opening and closing brackets, check for depth.
-		if(msg[pos] == '[') {
+		if(msg.charAt(pos) == '[') {
 			depth++;
-		} else if(msg[pos] == ']') {
+		} else if(msg.charAt(pos) == ']') {
 			depth--;
 		}
 
@@ -58,9 +58,24 @@ function cutMessage(msg) {
 }
 
 function CometClient(host){
+
 	this.host = host;
 	this.pos = 0;
 	this.seq = 0;
+
+	// detect if client can stream data using "xhr.readyState=3" or not
+	this.canStream = 1;
+	this.isIE = false;
+	var noStream = new Array("Chrome", "WebKit", "KHTML", "MSIE");
+	for(i = 0; i < noStream.length; i++) {
+		if(navigator.appVersion.indexOf(noStream[i]) != -1) {
+			this.canStream = 0;
+			break;
+		}
+	}
+	if(navigator.appVersion.indexOf("MSIE") != -1) {
+		this.isIE = true;
+	}
 
 	this.auth = function(uid, sid) {
 		
@@ -89,19 +104,21 @@ function CometClient(host){
 		var comet = this;
 		comet.xhr = new XMLHttpRequest;
 		comet.pos = 0;
-		// window.setTimeout(function() {comet.reconnect();}, 6000);
+		window.setTimeout(function() {comet.reconnect();}, 25000);
 
-		comet.xhr.open("get", "http://"+this.host+"/meta/connect?name="+channel+"&uid="+this.uid+"&sid="+this.sid+"&seq="+this.seq, true);
+		comet.xhr.open("get", "http://"+this.host+"/meta/connect?name="+channel+"&uid="+this.uid+"&sid="+this.sid+"&keep="+this.canStream+"&seq="+this.seq, true);
 		comet.xhr.onreadystatechange = function() {
+			if(comet.xhr.readyState != 4 && comet.canStream == 0) {
+				return; // wait for state 4.
+			}
 
 			if(comet.xhr.readyState == 4 && comet.xhr.status != 200) { // error...
-				window.setTimeout(function() {comet.connect(channel, onMsg, onMeta);}, 1000); // reconnect in 1 second.
+				comet.connect(channel, onMsg, onMeta);
 				return;
 			}
 
 			var data = comet.xhr.responseText;
 			if(comet.xhr.readyState === 3 || comet.xhr.readyState == 4) {
-
 				if(data.length == 0) {
 					// console.log("readyState=", comet.xhr.readyState, ", length=0");
 					setTimeout(function() {
@@ -113,9 +130,13 @@ function CometClient(host){
 				do {
 					// this might only be the first part of our current packet.
 					var msg = cutMessage(data.substr(comet.pos));
-
 					if(msg.length) try {
-						var obj = JSON.parse(msg);
+						var obj;
+						if(comet.isIE) {
+							obj = eval("("+msg+")");
+						} else {
+							obj = JSON.parse(msg);
+						}
 						comet.pos += msg.length; // add to what we've read so far.
 
 						if(obj[1] && obj[1].seq) { // new timestamp
@@ -147,9 +168,13 @@ function CometClient(host){
 			if(comet.xhr.readyState == 4) { // reconnect
 				// console.log("readyState=4");
 				// TODO: if IE, reconnect directly? not sure yet.
-				window.setTimeout(function() {
+				if(this.canStream) {
+					window.setTimeout(function() {
+						comet.connect(channel, onMsg, onMeta);
+					}, 1000);
+				} else {
 					comet.connect(channel, onMsg, onMeta);
-				}, 1000);
+				}
 			}
 		};
 		comet.xhr.send(null);
