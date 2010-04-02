@@ -60,7 +60,7 @@ function cutMessage(msg) {
 function CometClient(host){
 	this.host = host;
 	this.pos = 0;
-	this.timestamp = 0;
+	this.seq = 0;
 
 	this.auth = function(uid, sid) {
 		
@@ -72,23 +72,23 @@ function CometClient(host){
 	}
 
 	this.reconnect = function() {
-		// console.log("CLOSE");
+		console.log("CLOSE");
 		try {
 			this.xhr.abort();
 		} catch(e) {}
 	}
 
 	this.connect = function(channel, onMsg, onMeta) {
+		console.log("CONNECT");
 		var comet = this;
 		comet.xhr = new XMLHttpRequest;
 		comet.pos = 0;
 		// window.setTimeout(function() {comet.reconnect();}, 6000);
 
-		comet.xhr.open("get", "http://"+this.host+"/meta/connect?name="+channel+"&uid="+this.uid+"&sid="+this.sid+"&time="+this.timestamp, true);
+		comet.xhr.open("get", "http://"+this.host+"/meta/connect?name="+channel+"&uid="+this.uid+"&sid="+this.sid+"&seq="+this.seq, true);
 		comet.xhr.onreadystatechange = function() {
 
 			if(comet.xhr.readyState == 4 && comet.xhr.status != 200) { // error...
-				// console.log("reconnecting in one second...");
 				window.setTimeout(function() {comet.connect(channel, onMsg, onMeta);}, 1000); // reconnect in 1 second.
 				return;
 			}
@@ -98,7 +98,9 @@ function CometClient(host){
 
 				if(data.length == 0) {
 					// console.log("readyState=", comet.xhr.readyState, ", length=0");
-					comet.connect(channel, onMsg, onMeta);
+					setTimeout(function() {
+						comet.connect(channel, onMsg, onMeta);
+					}, 1000); // reconnect soon.
 					return;
 				}
 
@@ -110,8 +112,8 @@ function CometClient(host){
 						var obj = JSON.parse(msg);
 						comet.pos += msg.length; // add to what we've read so far.
 
-						if(obj[1] && obj[1].time) { // new timestamp
-							comet.timestamp = obj[1].time;
+						if(obj[1] && obj[1].seq) { // new timestamp
+							comet.seq = obj[1].seq;
 						}
 
 						switch(obj[0]) {
@@ -127,7 +129,9 @@ function CometClient(host){
 						}
 					} catch(e) { // TODO: how do we handle errors?
 						// console.log("fail line 66:", e);
-						comet.reconnect();
+						setTimeout(function() {
+							comet.connect(channel, onMsg, onMeta);
+						}, 1000); // reconnect soon.
 					}
 				// there might be more in this event: consume the whole string.
 				// console.log("comet.pos=", comet.pos, ", msg.length=", msg.length, ", data.length=", data.length);
@@ -136,7 +140,10 @@ function CometClient(host){
 			}
 			if(comet.xhr.readyState == 4) { // reconnect
 				// console.log("readyState=4");
-				comet.connect(channel, onMsg, onMeta);
+				// TODO: if IE, reconnect directly? not sure yet.
+				window.setTimeout(function() {
+					comet.connect(channel, onMsg, onMeta);
+				}, 1000);
 			}
 		};
 		comet.xhr.send(null);

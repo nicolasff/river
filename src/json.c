@@ -44,7 +44,7 @@ json_msg(const char *channel, const long uid, const unsigned long long seq, cons
 
 	char fmt[] = "[\"msg\", {\"channel\": \"%s\", "
 			"\"uid\": %ld, "
-			"\"time\": %ld, "
+			"\"seq\": %ld, "
 			"\"data\": \"%s\"}]";
 	char *esc_data, *esc_channel;
 

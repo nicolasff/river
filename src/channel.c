@@ -15,6 +15,8 @@
 #define LOG_NEXT(pos) ((pos + 1) % LOG_BUFFER_SIZE)
 #define LOG_PREV(pos) ((pos + LOG_BUFFER_SIZE -1) % LOG_BUFFER_SIZE)
 
+static int __next_user_fd;
+
 /**
  * This is the hash table of all channels.
  */
@@ -28,6 +30,7 @@ channel_init(char *key) {
 	if(NULL == __channels) {
 		pthread_mutex_init(&channels_lock, NULL);
 		__channels = dictCreate(&dictTypeCopyNoneFreeNone, NULL);
+		__next_user_fd = 1000;
 	}
 }
 
@@ -87,7 +90,10 @@ channel_add_connection(struct p_channel *channel, struct p_user *user, int fd) {
 
 	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
 	pcu->user = user;
-	pcu->fd = fd;
+
+	/* probably use a global lock here. */
+	pcu->fd = __next_user_fd++;
+	dup2(fd, pcu->fd);
 
 	CHANNEL_LOCK(channel);
 
