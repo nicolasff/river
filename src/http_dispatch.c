@@ -142,8 +142,7 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 		} 
 	}
 
-
-	// reply
+	/* reply */
 	if(success) {
 		send_reply(req, 200);
 	} else {
@@ -265,10 +264,11 @@ http_dispatch_meta_publish(struct http_request *req) {
 		return 0;
 	}
 
+	send_reply(req, 200);
+
 	/* send to all channel users. */
 	channel_write(channel, uid, data, data_len);
 
-	send_reply(req, 200);
 	return 0;
 }
 

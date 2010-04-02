@@ -17,6 +17,7 @@ http_response(int fd, int code, const char *status, const char *data, size_t len
 			code, status, len);
 	if(ret) {
 		ret = write(fd, data, len);
+		close(fd);
 		(void)ret;
 	}
 }

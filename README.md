@@ -37,7 +37,6 @@ curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of
 * Add JSONP callback parameter.
 * Add support for HTML5 WebSockets
 * Remove user authentication?
-* Remove user subscriptions?
 * Lots of cleanup code.
 * Add timeouts on the server side
 * Add enums for returns messages, especially in http_dispatch.{c,h}
