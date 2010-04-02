@@ -67,19 +67,25 @@ function CometClient(host){
 		this.uid = uid;
 		this.sid = sid;
 
-		url = "http://"+this.host+"/meta/authenticate?uid="+this.uid+"&sid="+this.sid;
+		var url = "http://"+this.host+"/meta/authenticate?uid="+this.uid+"&sid="+this.sid;
 		ajax(url);
 	}
 
 	this.reconnect = function() {
-		console.log("CLOSE");
+		// console.log("CLOSE");
 		try {
 			this.xhr.abort();
 		} catch(e) {}
 	}
 
+	this.send = function(channel, msg) {
+
+		var url = "http://" + this.host + "/meta/publish?name="+channel+"&data="+msg+"&uid="+this.uid+"&sid="+this.sid;
+		ajax(url);
+	}
+
 	this.connect = function(channel, onMsg, onMeta) {
-		console.log("CONNECT");
+		// console.log("CONNECT");
 		var comet = this;
 		comet.xhr = new XMLHttpRequest;
 		comet.pos = 0;

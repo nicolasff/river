@@ -1,10 +1,23 @@
 <html>
 
 	<head>
-	<title>comet</title>
+		<title>comet</title>
+
+		<style type="text/css">
+			div#chat {
+				width: 800px;
+				height: 400px;
+				border: 1px solid black;
+				overflow: scroll;
+			}
+			input#line {
+				width: 400px;
+			}
+
+		</style>
 	</head>
 <body>
-	<script>
+	<script type="text/javascript">
 
 		document.domain = "test.com";
 		total = 0;
@@ -13,18 +26,31 @@
 
 		function onMsg(obj) {
 			total++;
-			document.getElementById("out").innerHTML += "<br/>("+total+") received ["+obj.data+"] from user ["+obj.uid+"] with sequence number ["+obj.seq+"]";
+			document.getElementById("chat").innerHTML += "<br/>("+total+") received ["+obj.data+"] from user ["+obj.uid+"] with sequence number ["+obj.seq+"]";
 		}
 
 		function comet() {
 			var iframe = document.getElementById("iframe").contentWindow;
 			c = new iframe.CometClient("cometd.test.com:1234");
-			c.auth(1729, "my-sid");
+			c.auth(1729, "my-sid"); // this should not be called by the client
 			c.connect("public-channel", onMsg);
 		}
 
 		function disconnect() {
 			c.reconnect();
+		}
+
+		function sendMsg(e) {
+
+			if(e.keyCode != 13) {
+				return;
+			}
+
+			var line = document.getElementById("line");
+			var msg = line.value;
+
+			c.send("public-channel", msg);
+			line.value = "";
 		}
 	</script>
 	
@@ -32,6 +58,8 @@
 	<button onclick="disconnect();">disconnect</button>
 	<iframe id="iframe" style="display: none;" src="http://cometd.test.com:1234/"></iframe>
 	
-	<div id="out">...</div>
+	<div id="chat"></div>
+	<input onKeyPress="sendMsg(event);" id="line"></input>
+	
 </body>
 </html>
