@@ -1,0 +1,37 @@
+<html>
+
+	<head>
+	<title>comet</title>
+	</head>
+<body>
+	<script>
+
+		document.domain = "test.com";
+		total = 0;
+		function notice(text) {
+		}
+
+		function onMsg(obj) {
+			total++;
+			document.getElementById("out").innerHTML += "<br/>("+total+") received ["+obj.data+"] from user ["+obj.uid+"] with sequence number ["+obj.seq+"]";
+		}
+
+		function comet() {
+			var iframe = document.getElementById("iframe").contentWindow;
+			c = new iframe.CometClient("cometd.test.com:1234");
+			c.auth(1729, "my-sid");
+			c.connect("public-channel", onMsg);
+		}
+
+		function disconnect() {
+			c.reconnect();
+		}
+	</script>
+	
+	<button onclick="comet();">connect</button>
+	<button onclick="disconnect();">disconnect</button>
+	<iframe id="iframe" style="display: none;" src="http://cometd.test.com:1234/"></iframe>
+	
+	<div id="out">...</div>
+</body>
+</html>
