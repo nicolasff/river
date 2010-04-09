@@ -27,6 +27,11 @@ curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of
 
 5 - The `/meta/connect` call returns, with the data published in the channel.
 
+### Notes
+* /meta/connect takes 2 more (optional) parameters:
+    * `keep`: Use HTTP streaming or close connection after every push (value=`0` or `1`, defaults to `1`)
+    * `seq`: Stream messages from a the sequence number up. Example: If 1000 messages have been sent, `seq=990` will push 10 messages. This parameter still observes `keep`.
+
 → That's it for the proof of concept!
 
 #### TODO
