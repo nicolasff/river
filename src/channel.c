@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "channel.h"
-#include "user.h"
 #include "http.h"
 #include "json.h"
 

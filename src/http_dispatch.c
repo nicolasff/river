@@ -7,7 +7,6 @@
 #include <stdlib.h>
 
 #include "http_dispatch.h"
-#include "user.h"
 #include "channel.h"
 #include "server.h"
 #include "message.h"
