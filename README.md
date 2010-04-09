@@ -35,6 +35,7 @@ curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of
 
 #### TODO
 * Complete iframe page.
+* Remove channel creation, making it automatic upon subscribing?
 * Add JSONP callback parameter.
 * Add support for HTML5 WebSockets
 * Lots of cleanup code.
