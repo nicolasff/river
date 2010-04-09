@@ -3,6 +3,16 @@
 
 struct http_request;
 struct conf;
+struct p_channel;
+struct event;
+
+struct user_timeout {
+
+	struct p_channel_user *pcu;
+	struct p_channel *channel;
+	struct event ev;
+	struct timeval tv;
+};
 
 void
 http_init(struct conf *cfg);

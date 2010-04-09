@@ -85,6 +85,7 @@ worker_main(void *ptr) {
 		}
 
 		/* dispatch the client depending on the URL path */
+		req.base = wi->base;
 		int action = http_dispatch(&req);
 
 		/* cleanup */
@@ -178,6 +179,7 @@ server_run(short nb_workers, const char *ip, short port) {
 		struct worker_info *wi = calloc(1, sizeof(struct worker_info));
 		wi->q = q;
 		wi->cond = &di.cond;
+		wi->base = base;
 		pthread_create(&wi->thread, NULL, worker_main, wi);
 	}
 

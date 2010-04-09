@@ -4,6 +4,8 @@
 #include "http-parser/http_parser.h"
 #include "dict.h"
 
+struct event_base;
+
 /* Send an HTTP response */
 void
 http_response(int fd, int code, const char *status, const char *data, size_t len);
@@ -31,6 +33,7 @@ struct http_request {
 	size_t path_len;
 
 	dict *get;
+	struct event_base *base;
 };
 
 int

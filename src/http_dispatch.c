@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <event.h>
 
 #include "http_dispatch.h"
 #include "channel.h"
@@ -19,6 +20,7 @@ static struct conf *__cfg;
 void
 http_init(struct conf *cfg) {
 
+	/* eww. */
 	__cfg = cfg;
 }
 
@@ -46,9 +48,7 @@ send_reply(struct http_request *req, int error) {
 int
 http_dispatch(struct http_request *req) {
 
-	/*if(req->path_len == 18 && 0 == strncmp(req->path, "/meta/authenticate", 18)) {
-		return http_dispatch_meta_authenticate(req);
-	} else*/ if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/publish", 13)) {
+	if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/publish", 13)) {
 		return http_dispatch_meta_publish(req);
 	} else if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/connect", 13)) {
 		return http_dispatch_meta_read(req);
@@ -96,6 +96,24 @@ http_dispatch_root(struct http_request *req) {
 	return 0;
 }
 
+void
+on_client_too_old(int fd, short event, void *arg) {
+
+	(void)fd;
+	struct user_timeout *ut = arg;
+	if(event != EV_TIMEOUT) {
+		return;
+	}
+	/* disconnect user */
+	http_streaming_end(ut->pcu->fd);
+
+	/* remove from channel */
+	CHANNEL_LOCK(ut->channel);
+	channel_del_connection(ut->channel, ut->pcu);
+	CHANNEL_UNLOCK(ut->channel);
+	free(ut);
+}
+
 /**
  * Connect user to a channel. This call is blocking, waiting for new data.
  * 
@@ -105,6 +123,7 @@ int
 http_dispatch_meta_read(struct http_request *req) {
 
 	int success = 1;
+	int ret;
 	struct p_channel *channel = NULL;
 
 	int keep_connected = 1;
@@ -132,13 +151,33 @@ http_dispatch_meta_read(struct http_request *req) {
 		pcu = channel_add_connection(channel, req->fd, keep_connected);
 		http_streaming_start(req->fd, 200, "OK");
 		if(seq) {
-			return channel_catchup_user(channel, pcu, seq);
+			ret = channel_catchup_user(channel, pcu, seq);
+		} else {
+			ret = 1; /* this means: do not close the connection. */
 		}
-		return 1; /* this means: do not close the connection. */
+		/* add timeout to avoid keeping the user for too long. */
+		if(ret == 1 && __cfg->client_timeout > 0) {
+			struct user_timeout *ut;
+
+			ut = calloc(1, sizeof(struct user_timeout));
+			ut->pcu = pcu;
+			ut->channel = channel;
+
+			/* timeout value. */
+			ut->tv.tv_sec = __cfg->client_timeout;
+			ut->tv.tv_usec = 0;
+
+			/* add timeout event */
+			timeout_set(&ut->ev, on_client_too_old, ut);
+			event_base_set(req->base, &ut->ev);
+			timeout_add(&ut->ev, &ut->tv);
+		}
 	} else {
 		send_reply(req, 403);
-		return 0;
+		ret = 0;
 	}
+
+	return ret;
 }
 
 /**
@@ -181,6 +220,7 @@ http_dispatch_meta_publish(struct http_request *req) {
 	return 0;
 }
 
+/* eww. */
 extern char *channel_creation_key;
 /**
  * Creates a new channel.

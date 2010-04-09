@@ -32,9 +32,17 @@
 		}
 
 		function comet() {
-			var iframe = document.getElementById("iframe").contentWindow;
-			c = new iframe.CometClient("cometd.test.com:1234");
-			c.connect("public-channel", onMsg);
+			var log = document.getElementById("log");
+			try {
+				var iframe = document.getElementById("iframe").contentWindow;
+				c = new iframe.CometClient("cometd.test.com:1234");
+				c.connect("public-channel", onMsg);
+				log.innerHTML = "CONNECTED.";
+				log.setAttribute("style", "color: #0a0;");
+			} catch(e) {
+				log.innerHTML = "FAILED TO CONNECT. check that cometd is running on cometd.test.com:1234.";
+				log.setAttribute("style", "color: #c00;");
+			}
 		}
 
 		function disconnect() {
@@ -59,6 +67,7 @@
 	<button onclick="disconnect();">disconnect</button>
 	<iframe id="iframe" style="display: none;" src="http://cometd.test.com:1234/"></iframe>
 	
+	<div id="log"></div>
 	<div id="chat"></div>
 	<input onKeyPress="sendMsg(event);" id="line" />
 	

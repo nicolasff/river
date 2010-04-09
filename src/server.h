@@ -12,6 +12,8 @@ struct event_callback_data {
 
 struct worker_info {
 	pthread_t 	thread;
+	struct event_base	*base; /* the only event base. */
+
 	pthread_cond_t	*cond;
 	struct queue_t 	*q;
 };

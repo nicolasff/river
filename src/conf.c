@@ -17,6 +17,8 @@ conf_read(const char *filename) {
 	}
 
 	conf = calloc(1, sizeof(struct conf));
+	conf->client_timeout = 30;
+	conf->threads = 8;
 
 	while(!feof(f)) {
 		char buffer[100], *ret;
@@ -37,7 +39,7 @@ conf_read(const char *filename) {
 		} else if(strncmp(ret, "port ", 5) == 0) {
 			conf->port = (short)atoi(ret + 5);
 		} else if(strncmp(ret, "threads ", 8) == 0) {
-			conf->threads = (short)atoi(ret + 8);
+			conf->threads = (int)atoi(ret + 8);
 		} else if(strncmp(ret, "domain ", 7) == 0) {
 			conf->domain = strdup(ret + 7);
 			conf->domain_len = strlen(conf->domain);
@@ -46,6 +48,8 @@ conf_read(const char *filename) {
 			conf->common_domain_len = strlen(conf->common_domain);
 		} else if(strncmp(ret, "channelkey ", 11) == 0) {
 			conf->channel_key = strdup(ret + 11);
+		} else if(strncmp(ret, "client_timeout", 14) == 0) {
+			conf->client_timeout = (int)atoi(ret + 14);
 		}
 	}
 	fclose(f);
@@ -53,9 +57,6 @@ conf_read(const char *filename) {
 	/* default values */
 	if(!conf->ip) {
 		conf->ip = strdup("127.0.0.1");
-	}
-	if(!conf->threads) {
-		conf->threads = 8;
 	}
 	if(!conf->domain) {
 		conf->domain = strdup("127.0.0.1");

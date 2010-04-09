@@ -16,6 +16,8 @@ struct conf {
 	char *channel_key;
 
 	int threads;
+
+	int client_timeout;
 };
 
 struct conf *
