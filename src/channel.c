@@ -45,6 +45,7 @@ channel_new(const char *name) {
 		free(channel);
 		return NULL;
 	}
+	channel->name_len = strlen(name);
 
 	channel->log_buffer = calloc(LOG_BUFFER_SIZE, sizeof(struct p_channel_message));
 	if(NULL == channel->log_buffer) {
@@ -123,9 +124,9 @@ channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu) {
 }
 
 void
-channel_write(struct p_channel *channel, const char *data, size_t data_len) {
+channel_write(struct p_channel *channel, const char *data, size_t data_len,
+		const char *payload, size_t payload_len) {
 
-	char *json;
 	struct p_channel_user *pcu;
 	struct p_channel_message *msg;
 
@@ -140,9 +141,11 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len) {
 	free(msg->data); /* free old log message */
 
 	/* copy log data */
-	msg->data = calloc(data_len, 1);
-	json = json_msg(channel->name, msg->seq, data, &msg->data_len);
-	msg->data = json;
+	msg->data = json_msg(channel->name, channel->name_len,
+			msg->seq,
+			data, data_len,
+			payload, payload_len,
+			&msg->data_len);
 
 	/* incr log pointer */
 	channel->log_pos = LOG_NEXT(channel->log_pos);

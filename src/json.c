@@ -37,26 +37,71 @@ json_escape(const char *data, size_t len, size_t *out_len) {
 }
 
 char *
-json_msg(const char *channel, const unsigned long long seq, const char *data, size_t *len) {
+json_msg(const char *channel, size_t channel_len,
+		const unsigned long long seq,
+		const char *data, size_t data_len,
+		const char *payload, size_t payload_len,
+		size_t *out_len) {
 
-	int needed = 0;
-	char *buffer = NULL;
+	size_t needed = 0;
+	char *buffer = NULL, *pos;
 
-	char fmt[] = "[\"msg\", {\"channel\": \"%s\", "
-			"\"seq\": %ld, "
-			"\"data\": \"%s\"}]";
+	char fmt0[] = "[\"msg\", {\"channel\": \"";
+	char fmt1[] = "\", \"seq\": ";
+	char fmt2[] = ", \"data\": \"";
+	char fmt3[] = "\", \"payload\": \"";
+	char fmt4[] = "\"}]";
+
+	char seq_str[40];
+	int seq_len = sprintf(seq_str, "%lld", seq);
+
+	/* escape data */
 	char *esc_data, *esc_channel;
+	esc_data = json_escape(data, data_len, &data_len);
+	esc_channel = json_escape(channel, channel_len, &channel_len);
 
-	esc_data = json_escape(data, strlen(data), NULL);
-	esc_channel = json_escape(channel, strlen(channel), NULL);
-	
-	needed = snprintf(NULL, 0, fmt, esc_channel, seq, esc_data);
-	buffer = calloc(needed, 1);
-	*len = (size_t)snprintf(buffer, 1+needed, fmt, esc_channel, seq, esc_data);
+	needed = sizeof(fmt0)-1
+		+ channel_len
+		+ sizeof(fmt1)-1
+		+ seq_len
+		+ sizeof(fmt2)-1
+		+ data_len
+		+ sizeof(fmt3)-1
+		+ payload_len
+		+ sizeof(fmt4)-1;
 
-	free(esc_data);
-	free(esc_channel);
+	pos = buffer = calloc(needed + 1, 1);
+	buffer[needed] = 0;
 
+	memcpy(pos, fmt0, sizeof(fmt0)-1);
+	pos += sizeof(fmt0)-1;
+
+	memcpy(pos, esc_channel, channel_len);
+	pos += channel_len;
+
+	memcpy(pos, fmt1, sizeof(fmt1)-1);
+	pos += sizeof(fmt1)-1;
+
+	memcpy(pos, seq_str, seq_len);
+	pos += seq_len;
+
+	memcpy(pos, fmt2, sizeof(fmt2)-1);
+	pos += sizeof(fmt2)-1;
+
+	memcpy(pos, esc_data, data_len);
+	pos += data_len;
+
+	memcpy(pos, fmt3, sizeof(fmt3)-1);
+	pos += sizeof(fmt3)-1;
+
+	memcpy(pos, payload, payload_len);
+	pos += payload_len;
+
+	memcpy(pos, fmt4, sizeof(fmt4)-1);
+
+	if(out_len) {
+		*out_len = needed;
+	}
 	return buffer;
 }
 

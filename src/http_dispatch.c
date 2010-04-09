@@ -190,9 +190,9 @@ http_dispatch_meta_publish(struct http_request *req) {
 
 	struct p_channel *channel;
 
-	char *name = NULL, *data = NULL;
 	dictEntry *de;
-	size_t data_len = 0;
+	char *name = NULL, *data = NULL, *payload = NULL;
+	size_t data_len = 0, payload_len = 0;
 
 	if((de = dictFind(req->get, "name"))) {
 		name = de->val;
@@ -200,6 +200,10 @@ http_dispatch_meta_publish(struct http_request *req) {
 	if((de = dictFind(req->get, "data"))) {
 		data = de->val;
 		data_len = de->size;
+	}
+	if((de = dictFind(req->get, "payload"))) {
+		payload = de->val;
+		payload_len = de->size;
 	}
 	if(!name || !data) {
 		send_reply(req, 403);
@@ -215,7 +219,7 @@ http_dispatch_meta_publish(struct http_request *req) {
 	send_reply(req, 200);
 
 	/* send to all channel users. */
-	channel_write(channel, data, data_len);
+	channel_write(channel, data, data_len, payload, payload_len);
 
 	return 0;
 }

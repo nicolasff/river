@@ -22,6 +22,7 @@ struct p_channel_message {
 
 struct p_channel {
 	char *name;
+	size_t name_len;
 
 	unsigned long long seq;
 
@@ -52,7 +53,8 @@ void
 channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu);
 
 void
-channel_write(struct p_channel *channel, const char *data, size_t data_len);
+channel_write(struct p_channel *channel, const char *data, size_t data_len,
+		const char *payload, size_t payload_len);
 
 int
 channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsigned long long seq);
