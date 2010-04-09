@@ -37,13 +37,12 @@ json_escape(const char *data, size_t len, size_t *out_len) {
 }
 
 char *
-json_msg(const char *channel, const long uid, const unsigned long long seq, const char *data, size_t *len) {
+json_msg(const char *channel, const unsigned long long seq, const char *data, size_t *len) {
 
 	int needed = 0;
 	char *buffer = NULL;
 
 	char fmt[] = "[\"msg\", {\"channel\": \"%s\", "
-			"\"uid\": %ld, "
 			"\"seq\": %ld, "
 			"\"data\": \"%s\"}]";
 	char *esc_data, *esc_channel;
@@ -51,9 +50,9 @@ json_msg(const char *channel, const long uid, const unsigned long long seq, cons
 	esc_data = json_escape(data, strlen(data), NULL);
 	esc_channel = json_escape(channel, strlen(channel), NULL);
 	
-	needed = snprintf(NULL, 0, fmt, esc_channel, uid, seq, esc_data);
+	needed = snprintf(NULL, 0, fmt, esc_channel, seq, esc_data);
 	buffer = calloc(needed, 1);
-	*len = (size_t)snprintf(buffer, 1+needed, fmt, esc_channel, uid, seq, esc_data);
+	*len = (size_t)snprintf(buffer, 1+needed, fmt, esc_channel, seq, esc_data);
 
 	free(esc_data);
 	free(esc_channel);

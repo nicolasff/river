@@ -47,9 +47,9 @@ send_reply(struct http_request *req, int error) {
 int
 http_dispatch(struct http_request *req) {
 
-	if(req->path_len == 18 && 0 == strncmp(req->path, "/meta/authenticate", 18)) {
+	/*if(req->path_len == 18 && 0 == strncmp(req->path, "/meta/authenticate", 18)) {
 		return http_dispatch_meta_authenticate(req);
-	} else if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/publish", 13)) {
+	} else*/ if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/publish", 13)) {
 		return http_dispatch_meta_publish(req);
 	} else if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/connect", 13)) {
 		return http_dispatch_meta_read(req);
@@ -97,6 +97,7 @@ http_dispatch_root(struct http_request *req) {
 	return 0;
 }
 
+#if 0
 /**
  * Authenticate user.
  * 
@@ -150,31 +151,24 @@ http_dispatch_meta_authenticate(struct http_request *req) {
 	}
 	return 0;
 }
+#endif
 
 /**
  * Connect user to a channel. This call is blocking, waiting for new data.
  * 
- * Parameters: uid, sid, name, [seq], [keep]
+ * Parameters: name, [seq], [keep]
  */
 int
 http_dispatch_meta_read(struct http_request *req) {
 
-	int success = 0;
-	struct p_user *user = NULL;
+	int success = 1;
 	struct p_channel *channel = NULL;
 
 	int keep_connected = 1;
-	long uid = 0;
 	unsigned long long seq = 0;
-	char *sid = NULL, *name = NULL;
+	char *name = NULL;
 	dictEntry *de;
 
-	if((de = dictFind(req->get, "uid"))) {
-		uid = atol(de->val);
-	}
-	if((de = dictFind(req->get, "sid"))) {
-		sid = de->val;
-	}
 	if((de = dictFind(req->get, "name"))) {
 		name = de->val;
 	}
@@ -185,17 +179,6 @@ http_dispatch_meta_read(struct http_request *req) {
 		keep_connected = atol(de->val);
 	}
 
-	/* find user. */
-	if(!uid || !sid || !name) {
-		success = 0;
-	} else {
-		user = user_find(uid);
-		/* if user by uid is found, check sid */
-		if(user && !strcmp(sid, user->sid)) {
-			success = 1;
-		}
-	}
-
 	/* find channel */
 	if(!(channel = channel_find(name))) {
 		success = 0;
@@ -203,7 +186,7 @@ http_dispatch_meta_read(struct http_request *req) {
 
 	if(success) {
 		struct p_channel_user *pcu;
-		pcu = channel_add_connection(channel, user, req->fd, keep_connected);
+		pcu = channel_add_connection(channel, req->fd, keep_connected);
 		http_streaming_start(req->fd, 200, "OK");
 		if(seq) {
 			return channel_catchup_user(channel, pcu, seq);
@@ -225,11 +208,9 @@ http_dispatch_meta_publish(struct http_request *req) {
 
 	struct p_channel *channel;
 
-	long uid = 0;
-	char *sid = NULL, *name = NULL, *data = NULL;
+	char *name = NULL, *data = NULL;
 	dictEntry *de;
-	size_t data_len = 0, sid_len = 0;
-	struct p_user *user;
+	size_t data_len = 0;
 
 	if((de = dictFind(req->get, "name"))) {
 		name = de->val;
@@ -238,29 +219,10 @@ http_dispatch_meta_publish(struct http_request *req) {
 		data = de->val;
 		data_len = de->size;
 	}
-	if((de = dictFind(req->get, "uid"))) {
-		uid = atol(de->val);
-	}
-	if((de = dictFind(req->get, "sid"))) {
-		sid = de->val;
-		sid_len = de->size;
-	}
-	if(!sid || !uid || !name || !data) {
+	if(!name || !data) {
 		send_reply(req, 403);
 		return 0;
 	}
-
-	/* get (uid, sid) parameters from the sender, authenticate him */
-	if((user = user_find(uid))) {
-		if(0 != strncmp(user->sid, sid, sid_len)) {
-			send_reply(req, 403);
-			return 0;
-		}
-	} else { /* no such user */
-		send_reply(req, 403);
-		return 0;
-	}
-
 
 	/* find channel */
 	if(!(channel = channel_find(name))) {
@@ -271,7 +233,7 @@ http_dispatch_meta_publish(struct http_request *req) {
 	send_reply(req, 200);
 
 	/* send to all channel users. */
-	channel_write(channel, uid, data, data_len);
+	channel_write(channel, data, data_len);
 
 	return 0;
 }

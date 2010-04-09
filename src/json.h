@@ -4,7 +4,7 @@
 #include "time.h"
 
 char *
-json_msg(const char *channel, const long uid, const unsigned long long seq, const char *data, size_t *len);
+json_msg(const char *channel, const unsigned long long seq, const char *data, size_t *len);
 
 char *
 json_escape(const char *data, size_t len, size_t *out_len);

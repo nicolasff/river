@@ -3,7 +3,6 @@
 #include <unistd.h>
 
 #include "server.h"
-#include "user.h"
 #include "channel.h"
 #include "http_dispatch.h"
 #include "conf.h"
@@ -29,7 +28,6 @@ main(int argc, char *argv[]) {
 
 	http_init(cfg);
 	channel_init(cfg->channel_key);
-	user_init();
 	server_run(cfg->threads, cfg->ip, cfg->port);
 
 	while(1) {

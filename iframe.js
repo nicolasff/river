@@ -77,15 +77,6 @@ function CometClient(host){
 		this.isIE = true;
 	}
 
-	this.auth = function(uid, sid) {
-		
-		this.uid = uid;
-		this.sid = sid;
-
-		var url = "http://"+this.host+"/meta/authenticate?uid="+this.uid+"&sid="+this.sid;
-		ajax(url);
-	}
-
 	this.reconnect = function() {
 		// console.log("CLOSE");
 		try {
@@ -95,7 +86,7 @@ function CometClient(host){
 
 	this.send = function(channel, msg) {
 
-		var url = "http://" + this.host + "/meta/publish?name="+channel+"&data="+msg+"&uid="+this.uid+"&sid="+this.sid;
+		var url = "http://" + this.host + "/meta/publish?name="+channel+"&data="+msg;
 		ajax(url);
 	}
 
@@ -106,7 +97,7 @@ function CometClient(host){
 		comet.pos = 0;
 		window.setTimeout(function() {comet.reconnect();}, 25000);
 
-		comet.xhr.open("get", "http://"+this.host+"/meta/connect?name="+channel+"&uid="+this.uid+"&sid="+this.sid+"&keep="+this.canStream+"&seq="+this.seq, true);
+		comet.xhr.open("get", "http://"+this.host+"/meta/connect?name="+channel+"&keep="+this.canStream+"&seq="+this.seq, true);
 		comet.xhr.onreadystatechange = function() {
 			if(comet.xhr.readyState != 4 && comet.canStream == 0) {
 				return; // wait for state 4.

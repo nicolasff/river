@@ -27,14 +27,13 @@
 		function onMsg(obj) {
 			total++;
 			var chat = document.getElementById("chat");
-			chat .innerHTML += "<br/>("+total+") received ["+obj.data+"] from user ["+obj.uid+"] with sequence number ["+obj.seq+"]";
+			chat .innerHTML += "<br/>("+total+") received ["+obj.data+"] with sequence number ["+obj.seq+"]";
 			chat.scrollTop = chat.scrollHeight;
 		}
 
 		function comet() {
 			var iframe = document.getElementById("iframe").contentWindow;
 			c = new iframe.CometClient("cometd.test.com:1234");
-			c.auth(1729, "my-sid"); // this should not be called by the client
 			c.connect("public-channel", onMsg);
 		}
 

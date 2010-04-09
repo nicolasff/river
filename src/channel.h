@@ -4,10 +4,7 @@
 #define CHANNEL_LOCK(c)(pthread_mutex_lock(&c->lock))
 #define CHANNEL_UNLOCK(c)(pthread_mutex_unlock(&c->lock))
 
-struct p_user;
-
 struct p_channel_user {
-	struct p_user *user;
 	int fd;
 	int keep_connected;
 
@@ -21,8 +18,6 @@ struct p_channel_message {
 
 	char *data; /* message contents */
 	size_t data_len;
-
-	long uid; /* producer */
 };
 
 struct p_channel {
@@ -51,13 +46,13 @@ struct p_channel *
 channel_find(const char *name);
 
 struct p_channel_user *
-channel_add_connection(struct p_channel *, struct p_user *, int fd, int keep_connected) ;
+channel_add_connection(struct p_channel *, int fd, int keep_connected) ;
 
 void
 channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu);
 
 void
-channel_write(struct p_channel *channel, long uid, const char *data, size_t data_len);
+channel_write(struct p_channel *channel, const char *data, size_t data_len);
 
 int
 channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsigned long long seq);

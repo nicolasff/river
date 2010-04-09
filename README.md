@@ -13,16 +13,15 @@ git submodule update
 
 3 - In a terminal, run:
 <pre>
-curl "http://127.0.0.1:1234/meta/authenticate?uid=1729&sid=my-secret-sid&payload={}"
 curl "http://127.0.0.1:1234/meta/newchannel?name=public-channel&key=c4rp2n3H5KzX"
-curl "http://127.0.0.1:1234/meta/connect?name=public-channel&uid=1729&sid=my-secret-sid"
+curl "http://127.0.0.1:1234/meta/connect?name=public-channel"
 </pre>
 The last HTTP call (`/meta/connect`) is blocking.
 
 
 4 - And then, in another terminal:
 <pre>
-curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of-comet&uid=1729&sid=my-secret-sid"
+curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of-comet&payload=xxx"
 </pre>
 
 5 - The `/meta/connect` call returns, with the data published in the channel.
@@ -36,10 +35,8 @@ curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of
 
 #### TODO
 * Complete iframe page.
-* Add custom payload for users (ex: {uid: 1729, login: "nff"})
 * Add JSONP callback parameter.
 * Add support for HTML5 WebSockets
-* Remove user authentication?
 * Lots of cleanup code.
 * Add timeouts on the server side
 * Add enums for returns messages, especially in http_dispatch.{c,h}
