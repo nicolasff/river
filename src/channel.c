@@ -114,7 +114,9 @@ channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu) {
 	if(pcu->prev) {
 		pcu->prev->next = pcu->next;
 	} else {
-		channel->user_list = channel->user_list->next;
+		if(channel->user_list) {
+			channel->user_list = channel->user_list->next;
+		}
 		if(channel->user_list) {
 			channel->user_list->prev = NULL;
 		}
@@ -136,7 +138,7 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len,
 	msg = &channel->log_buffer[channel->log_pos];
 
 	/* use channel sequence number */
-	msg->seq = ++channel->seq;
+	msg->seq = ++(channel->seq);
 
 	free(msg->data); /* free old log message */
 
@@ -151,8 +153,8 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len,
 	channel->log_pos = LOG_NEXT(channel->log_pos);
 
 	/* push message to connected users */
-	for(pcu = channel->user_list; pcu; pcu = pcu->next) {
-
+	for(pcu = channel->user_list; pcu; ) {
+		struct p_channel_user *next = pcu->next;
 		/* write message to connected user */
 		int ret = http_streaming_chunk(pcu->fd, msg->data, msg->data_len);
 		if(ret != (int)msg->data_len) { /* failed write */
@@ -162,6 +164,7 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len,
 			http_streaming_end(pcu->fd);
 			channel_del_connection(channel, pcu);
 		}
+		pcu = next;
 	}
 	CHANNEL_UNLOCK(channel);
 }
@@ -205,10 +208,14 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsi
 
 	if(0 == success) {
 		close(pcu->fd);
+		CHANNEL_LOCK(channel);
 		channel_del_connection(channel, pcu);
+		CHANNEL_UNLOCK(channel);
 	} else if(!pcu->keep_connected) {
 		http_streaming_end(pcu->fd);
+		CHANNEL_LOCK(channel);
 		channel_del_connection(channel, pcu);
+		CHANNEL_UNLOCK(channel);
 	}
 	return 0;
 }

@@ -102,6 +102,10 @@ json_msg(const char *channel, size_t channel_len,
 	if(out_len) {
 		*out_len = needed;
 	}
+
+	free(esc_data);
+	free(esc_channel);
+
 	return buffer;
 }
 
