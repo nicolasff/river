@@ -152,6 +152,7 @@ http_dispatch_meta_read(struct http_request *req) {
 		http_streaming_start(req->fd, 200, "OK");
 		if(seq) {
 			ret = channel_catchup_user(channel, pcu, seq);
+			printf("done catching-up\n");
 		} else {
 			ret = 1; /* this means: do not close the connection. */
 		}
