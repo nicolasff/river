@@ -65,6 +65,7 @@ worker_main(void *ptr) {
 
 		/* fail, close. */
 		if(nb_read < 0) {
+			printf("CLOSE %d (%s:%d)\n", req.fd, __FILE__, __LINE__);
 			close(req.fd); /* byyyee */
 			continue;
 		}
@@ -80,6 +81,7 @@ worker_main(void *ptr) {
 				buffer, nb_read);
 
 		if(nb_read != (int)nb_parsed) {
+			printf("CLOSE %d (%s:%d)\n", req.fd, __FILE__, __LINE__);
 			close(req.fd); /* byyyee */
 			continue;
 		}
@@ -93,6 +95,7 @@ worker_main(void *ptr) {
 		dictRelease(req.get);
 
 		if(0 == action) {
+			printf("CLOSE %d (%s:%d)\n", req.fd, __FILE__, __LINE__);
 			close(req.fd);
 		}
 	}

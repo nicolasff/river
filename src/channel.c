@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 #include "channel.h"
 #include "http.h"
 #include "json.h"
@@ -87,6 +88,7 @@ struct p_channel_user *
 channel_add_connection(struct p_channel *channel, int fd, int keep_connected) {
 
 	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
+	printf("Added PCU with fd=%d to channel %s\n", fd, channel->name);
 	pcu->fd = fd;
 	pcu->keep_connected = keep_connected;
 
@@ -160,8 +162,10 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len,
 		int ret = http_streaming_chunk(pcu->fd, msg->data, msg->data_len);
 		printf("pushing regular message\n");
 		if(ret != (int)msg->data_len) { /* failed write */
-			close(pcu->fd);
 			printf("failed write on fd=%d, del pcu: msg->data_len=%d, ret=%d\n", pcu->fd, (int)msg->data_len, ret);
+			printf("errno: %s\n", strerror(errno));
+			printf("CLOSE %d (%s:%d)\n", pcu->fd, __FILE__, __LINE__);
+			close(pcu->fd);
 			channel_del_connection(channel, pcu);
 		} else if(!pcu->keep_connected) {
 			http_streaming_end(pcu->fd);
@@ -214,6 +218,7 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsi
 
 	if(0 == success) {
 		printf("success=0, remove pcu\n");
+		printf("CLOSE %d (%s:%d)\n", pcu->fd, __FILE__, __LINE__);
 		close(pcu->fd);
 		CHANNEL_LOCK(channel);
 		channel_del_connection(channel, pcu);
@@ -224,6 +229,8 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsi
 		CHANNEL_LOCK(channel);
 		channel_del_connection(channel, pcu);
 		CHANNEL_UNLOCK(channel);
+	} else {
+		return 1;
 	}
 	return 0;
 }

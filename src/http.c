@@ -17,6 +17,7 @@ http_response(int fd, int code, const char *status, const char *data, size_t len
 			code, status, len);
 	if(ret) {
 		ret = write(fd, data, len);
+		printf("CLOSE %d (%s:%d)\n", fd, __FILE__, __LINE__);
 		close(fd);
 		(void)ret;
 	}
@@ -49,6 +50,7 @@ http_streaming_end(int fd) {
 
 	int ret = write(fd, "0\r\n\r\n", 5);
 	(void)ret;
+	printf("CLOSE %d (%s:%d)\n", fd, __FILE__, __LINE__);
 	close(fd);
 }
 
