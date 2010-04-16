@@ -88,7 +88,6 @@ struct p_channel_user *
 channel_add_connection(struct p_channel *channel, int fd, int keep_connected) {
 
 	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
-	printf("Added PCU with fd=%d to channel %s\n", fd, channel->name);
 	pcu->fd = fd;
 	pcu->keep_connected = keep_connected;
 
@@ -154,22 +153,16 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len,
 	/* incr log pointer */
 	channel->log_pos = LOG_NEXT(channel->log_pos);
 
-	printf("channel write, channel->user_list=%p\n", (void*)channel->user_list);
 	/* push message to connected users */
 	for(pcu = channel->user_list; pcu; ) {
 		struct p_channel_user *next = pcu->next;
 		/* write message to connected user */
 		int ret = http_streaming_chunk(pcu->fd, msg->data, msg->data_len);
-		printf("pushing regular message\n");
 		if(ret != (int)msg->data_len) { /* failed write */
-			printf("failed write on fd=%d, del pcu: msg->data_len=%d, ret=%d\n", pcu->fd, (int)msg->data_len, ret);
-			printf("errno: %s\n", strerror(errno));
-			printf("CLOSE %d (%s:%d)\n", pcu->fd, __FILE__, __LINE__);
 			close(pcu->fd);
 			channel_del_connection(channel, pcu);
 		} else if(!pcu->keep_connected) {
 			http_streaming_end(pcu->fd);
-			printf("!keep_connected, del pcu\n");
 			channel_del_connection(channel, pcu);
 		}
 		pcu = next;
@@ -211,20 +204,17 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsi
 		if(ret != (int)msg->data_len) { /* failed write */
 			success = 0;
 			break;
-		} else {
-			printf("pushed catch-up on fd=%d\n", pcu->fd);
 		}
 	}
 
 	if(0 == success) {
-		printf("success=0, remove pcu\n");
-		printf("CLOSE %d (%s:%d)\n", pcu->fd, __FILE__, __LINE__);
+		/* success=0, remove pcu */
 		close(pcu->fd);
 		CHANNEL_LOCK(channel);
 		channel_del_connection(channel, pcu);
 		CHANNEL_UNLOCK(channel);
 	} else if(!pcu->keep_connected) {
-		printf("keep=0, remove pcu\n");
+		/* keep=0, remove pcu\n */
 		http_streaming_end(pcu->fd);
 		CHANNEL_LOCK(channel);
 		channel_del_connection(channel, pcu);
