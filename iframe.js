@@ -77,7 +77,8 @@ function CometClient(host){
 		this.isIE = true;
 	}
 
-	this.reconnect = function() {
+	this.disconnect = function() {
+		window.clearTimeout(this.reconnectionTimeout); // cancel reconnect.
 		// console.log("CLOSE");
 		try {
 			this.xhr.onreadystatechange = function(){};
@@ -96,7 +97,7 @@ function CometClient(host){
 		var comet = this;
 		comet.xhr = new XMLHttpRequest;
 		comet.pos = 0;
-		window.setTimeout(function() {comet.reconnect(); comet.connect(channel, onMsg, onMeta);}, 5000);
+		comet.reconnectionTimeout = window.setTimeout(function() {comet.disconnect(); comet.connect(channel, onMsg, onMeta);}, 5000);
 
 		comet.xhr.open("get", "http://"+this.host+"/meta/connect?name="+channel+"&keep="+this.canStream+"&seq="+this.seq, true);
 		comet.xhr.onreadystatechange = function() {
@@ -114,7 +115,7 @@ function CometClient(host){
 			if(comet.xhr.readyState === 3 || comet.xhr.readyState == 4) {
 				// console.log("data.length=", data.length);
 				if(data.length == 0) {
-					console.log("readyState=", comet.xhr.readyState, ", length=0");
+					// console.log("readyState=", comet.xhr.readyState, ", length=0");
 					setTimeout(function() {
 						comet.connect(channel, onMsg, onMeta);
 					}, 1000); // reconnect soon.
@@ -149,7 +150,7 @@ function CometClient(host){
 								break;
 						}
 					} catch(e) { // TODO: how do we handle errors?
-						console.log("fail line 66:", e);
+						// console.log("fail line 66:", e);
 						setTimeout(function() {
 							comet.connect(channel, onMsg, onMeta);
 						}, 1000); // reconnect soon.
@@ -157,10 +158,7 @@ function CometClient(host){
 					
 
 					if(comet.pos < data.length) {
-						console.log("comet.pos=", comet.pos, ", msg.length=", msg.length, ", data.length=", data.length);
-						if(data.length == 4096) {
-							console.log("data:", data);
-						}
+						// console.log("comet.pos=", comet.pos, ", msg.length=", msg.length, ", data.length=", data.length);
 						break;
 					}
 					// there might be more in this event: consume the whole string.
