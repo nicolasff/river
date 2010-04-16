@@ -68,6 +68,20 @@ http_dispatch(struct http_request *req) {
 int
 http_dispatch_root(struct http_request *req) {
 
+
+	char *domain;
+	int domain_len;
+
+	dictEntry *de;
+	if((de = dictFind(req->get, "domain"))) {
+		domain = de->val;
+		domain_len = de->size;
+	} else {
+		printf("FFUUU\n");
+		send_reply(req, 403);
+		return 0;
+	}
+
 	char buffer_start[] = "<html><body><script>\ndocument.domain=\"";
 	char buffer_domain[] = "\";\n";
 	char buffer_end[] = "</script></body></html>\n";
@@ -76,9 +90,7 @@ http_dispatch_root(struct http_request *req) {
 
 	http_streaming_start(req->fd, 200, "OK");
 	http_streaming_chunk(req->fd, buffer_start, sizeof(buffer_start)-1);
-	if(__cfg->common_domain) {
-		http_streaming_chunk(req->fd, __cfg->common_domain, __cfg->common_domain_len);
-	}
+	http_streaming_chunk(req->fd, domain, domain_len);
 	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
 
 	while(!feof(f)) {

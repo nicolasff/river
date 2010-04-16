@@ -97,7 +97,7 @@ function CometClient(host){
 		var comet = this;
 		comet.xhr = new XMLHttpRequest;
 		comet.pos = 0;
-		comet.reconnectionTimeout = window.setTimeout(function() {comet.disconnect(); comet.connect(channel, onMsg, onMeta);}, 5000);
+		comet.reconnectionTimeout = window.setTimeout(function() {comet.disconnect(); comet.connect(channel, onMsg, onMeta);}, 25000);
 
 		comet.xhr.open("get", "http://"+this.host+"/meta/connect?name="+channel+"&keep="+this.canStream+"&seq="+this.seq, true);
 		comet.xhr.onreadystatechange = function() {
@@ -141,12 +141,20 @@ function CometClient(host){
 						switch(obj[0]) {
 							case 'msg': // regular message
 								if(obj[1].channel == channel) {
-									if(onMsg) onMsg(obj[1]);
+									if(onMsg) {
+										try {
+											onMsg(obj[1]);
+										} catch(e) {} // ignore
+									}
 								} // in the case of a wrong channel, raise error? (TODO)
 								break;
 
 							case 'meta': // TODO: handle service messages, meta-messages.
-								if(onMeta) onMeta(obj[1]);
+								if(onMeta) {
+									try {
+										onMeta(obj[1]);
+									} catch(e) {} // ignore
+								}
 								break;
 						}
 					} catch(e) { // TODO: how do we handle errors?

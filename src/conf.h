@@ -7,12 +7,6 @@ struct conf {
 	char *ip;
 	short port;
 
-	char *domain;
-	size_t domain_len;
-
-	char *common_domain;
-	size_t common_domain_len;
-
 	char *channel_key;
 
 	int threads;
