@@ -37,5 +37,4 @@ curl "http://127.0.0.1:1234/publish?name=public-channel&data=hello-world-of-come
 * Add JSONP callback parameter.
 * Add support for HTML5 WebSockets
 * Lots of cleanup code.
-* Add enums for returns messages, especially in http_dispatch.{c,h}
 * Prepare a better demo.

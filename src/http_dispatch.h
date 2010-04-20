@@ -1,6 +1,8 @@
 #ifndef COMETD_HTTP_DISPATCH_H
 #define COMETD_HTTP_DISPATCH_H
 
+#include "http.h"
+
 struct http_request;
 struct conf;
 struct p_channel;
@@ -17,16 +19,16 @@ struct user_timeout {
 void
 http_init(struct conf *cfg);
 
-int
+http_action
 http_dispatch(struct http_request *req);
 
-int
+http_action
 http_dispatch_iframe(struct http_request *req);
 
-int
+http_action
 http_dispatch_subscribe(struct http_request *req);
 
-int
+http_action
 http_dispatch_publish(struct http_request *req);
 
 #endif /* COMETD_HTTP_DISPATCH_H */

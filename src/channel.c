@@ -173,7 +173,7 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len) {
 	CHANNEL_UNLOCK(channel);
 }
 
-int
+http_action
 channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsigned long long seq) {
 
 	struct p_channel_message *msg;
@@ -196,7 +196,7 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsi
 	}
 
 	if(!found || (first +1 == last && channel->log_buffer[first].seq <= seq)) {
-		return 1;
+		return HTTP_KEEP_CONNECTED;
 	}
 
 	for(pos = first; pos != last; pos = LOG_NEXT(pos)) {
@@ -213,11 +213,11 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsi
 	}
 
 	if(0 == success) {
-		return 0;
+		return HTTP_DISCONNECT;
 	}
 	if(sent_data && (!pcu->keep_connected)) {
-		return 0;
+		return HTTP_DISCONNECT;
 	}
-	return 1;
+	return HTTP_KEEP_CONNECTED;
 }
 

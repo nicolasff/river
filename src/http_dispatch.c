@@ -77,7 +77,7 @@ send_reply(struct http_request *req, int error) {
 /**
  * Dispatch based on the path
  */
-int
+http_action
 http_dispatch(struct http_request *req) {
 
 	if(req->path_len == 8 && 0 == strncmp(req->path, "/publish", 8)) {
@@ -88,14 +88,14 @@ http_dispatch(struct http_request *req) {
 		return http_dispatch_iframe(req);
 	}
 
-	return 0;
+	return HTTP_DISCONNECT;
 }
 
 
 /**
  * Return generic page for iframe inclusion
  */
-int
+http_action
 http_dispatch_iframe(struct http_request *req) {
 
 	dictEntry *de;
@@ -117,7 +117,7 @@ http_dispatch_iframe(struct http_request *req) {
 	http_streaming_chunk(req->fd, buffer_end, sizeof(buffer_end)-1);
 	http_streaming_end(req->fd);
 	
-	return 0;
+	return HTTP_DISCONNECT;
 }
 
 void
@@ -143,10 +143,10 @@ on_client_too_old(int fd, short event, void *arg) {
  * 
  * Parameters: name, [seq], [keep]
  */
-int
+http_action
 http_dispatch_subscribe(struct http_request *req) {
 
-	int ret = 1;
+	http_action ret = HTTP_KEEP_CONNECTED;
 	struct p_channel *channel = NULL;
 
 	int keep_connected = 1, has_seq = 0;
@@ -187,10 +187,10 @@ http_dispatch_subscribe(struct http_request *req) {
 	if(has_seq && seq < channel->seq) {
 		ret = channel_catchup_user(channel, pcu, seq);
 		/* case 1 */
-		if(ret == 0) {
+		if(ret == HTTP_DISCONNECT) {
 			free(pcu);
 			CHANNEL_UNLOCK(channel);
-			return 0;
+			return HTTP_DISCONNECT;
 		} else {
 			/* case 2*/
 		}
@@ -228,7 +228,7 @@ http_dispatch_subscribe(struct http_request *req) {
  *
  * Parameters: name (channel name), data.
  */
-int
+http_action
 http_dispatch_publish(struct http_request *req) {
 
 	struct p_channel *channel;
@@ -246,13 +246,13 @@ http_dispatch_publish(struct http_request *req) {
 	}
 	if(!name || !data) {
 		send_reply(req, 403);
-		return 0;
+		return HTTP_DISCONNECT;
 	}
 
 	/* find channel */
 	if(!(channel = channel_find(name))) {
 		send_reply(req, 403);
-		return 0;
+		return HTTP_DISCONNECT;
 	}
 
 	send_reply(req, 200);
@@ -260,6 +260,6 @@ http_dispatch_publish(struct http_request *req) {
 	/* send to all channel users. */
 	channel_write(channel, data, data_len);
 
-	return 0;
+	return HTTP_DISCONNECT;
 }
 

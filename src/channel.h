@@ -4,6 +4,8 @@
 #define CHANNEL_LOCK(c)(pthread_mutex_lock(&c->lock))
 #define CHANNEL_UNLOCK(c)(pthread_mutex_unlock(&c->lock))
 
+#include "http.h"
+
 struct p_channel_user {
 	int fd;
 	int keep_connected;
@@ -58,7 +60,7 @@ channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu);
 void
 channel_write(struct p_channel *channel, const char *data, size_t data_len);
 
-int
+http_action
 channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsigned long long seq);
 
 #endif /* COMETD_CHANNEL_H */
