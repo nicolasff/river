@@ -5,30 +5,52 @@
 #include <evhttp.h>
 #include <unistd.h>
 
+int remaining_requests = 1000;
+
 struct message_chunk {
 	char *data;
 	size_t sz;
 	struct message_chunk *next;
 };
 struct comet_message {
+	struct event_base    *base;
 	struct message_chunk *first;
 	struct message_chunk *last;
 };
 
-void on_http_response(struct evhttp_request *req, void *ptr){
+void
+queue_request(struct event_base *base);
+
+
+void
+on_http_response(struct evhttp_request *req, void *ptr){
 
 	struct comet_message *cm = ptr;
-	printf("on_http_response finished.\n");
+	if(!req || !cm || !cm->first) {
+		return;
+	}
+	printf("on_http_response finished (%d remain).\n", remaining_requests);
 
 	if(req->response_code != HTTP_OK) {
-		printf("FAIL\n");
+		printf("FAIL (response_code=%d)\n", req->response_code);
 	} else {
 		size_t total = 0;
-		struct message_chunk *mc;
-		for(mc = cm->first; mc; mc = mc->next) {
+		struct event_base *base = cm->base;
+		struct message_chunk *mc, *mc_next;
+		for(mc = cm->first; mc; mc = mc_next) {
 			total += mc->sz;
+			mc_next = mc->next;
+			free(mc->data);
+			free(mc);
 		}
-		printf("SUCCESS: got %zd bytes\n", total);
+		free(cm);
+		// printf("SUCCESS: got %zd bytes\n", total);
+		remaining_requests--;
+		if(remaining_requests > 0) {
+			queue_request(base);
+		} else {
+			_exit(0);
+		}
 	}
 }
 
@@ -48,12 +70,27 @@ on_http_chunk(struct evhttp_request *req, void *ptr) {
 			cm->last = mc;
 		}
 		mc->sz = EVBUFFER_LENGTH(req->input_buffer);
+		/*
 		mc->data = calloc(mc->sz, 1);
 		evbuffer_remove(req->input_buffer, mc->data, mc->sz);
 		printf("CHUNK SUCCESS: %zd\n", mc->sz);
 		write(1, mc->data, mc->sz);
 		printf("\n");
+		*/
 	}
+}
+
+void
+queue_request(struct event_base *base) {
+	struct comet_message *cm = calloc(1, sizeof(struct comet_message));
+
+	struct evhttp_connection *evcon = evhttp_connection_new("127.0.0.1", 1234);
+	struct evhttp_request *evreq = evhttp_request_new(on_http_response, cm);
+
+	evhttp_connection_set_base(evcon, base);
+	cm->base = base;
+	evhttp_make_request(evcon, evreq, EVHTTP_REQ_GET, "/iframe"); // "/subscribe?name=lol");
+	evhttp_request_set_chunked_cb(evreq, on_http_chunk);
 }
 
 int
@@ -61,20 +98,12 @@ main(int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
 
-	int ret, i;
+	int ret, i, client_count = 10;
 
 	struct event_base *base = event_base_new();
 
-	for(i = 0; i < 1; ++i) {
-
-		struct comet_message *cm = calloc(1, sizeof(struct comet_message));
-
-		struct evhttp_connection *evcon = evhttp_connection_new("127.0.0.1", 1234);
-		struct evhttp_request *evreq = evhttp_request_new(on_http_response, cm);
-		evhttp_connection_set_base(evcon, base);
-
-		ret = evhttp_make_request(evcon, evreq, EVHTTP_REQ_GET, "/subscribe?name=lol");
-		evhttp_request_set_chunked_cb(evreq, on_http_chunk);
+	for(i = 0; i < client_count; ++i) {
+		queue_request(base);
 	}
 
 	event_base_dispatch(base);
