@@ -3,6 +3,7 @@
 
 #include <event.h>
 #include <evhttp.h>
+#include <unistd.h>
 
 struct message_chunk {
 	char *data;
@@ -27,7 +28,7 @@ void on_http_response(struct evhttp_request *req, void *ptr){
 		for(mc = cm->first; mc; mc = mc->next) {
 			total += mc->sz;
 		}
-		printf("SUCCESS: got %d bytes\n", (int)total);
+		printf("SUCCESS: got %zd bytes\n", total);
 	}
 }
 
@@ -47,7 +48,11 @@ on_http_chunk(struct evhttp_request *req, void *ptr) {
 			cm->last = mc;
 		}
 		mc->sz = EVBUFFER_LENGTH(req->input_buffer);
-		printf("CHUNK SUCCESS: %d\n", (int)mc->sz);
+		mc->data = calloc(mc->sz, 1);
+		evbuffer_remove(req->input_buffer, mc->data, mc->sz);
+		printf("CHUNK SUCCESS: %zd\n", mc->sz);
+		write(1, mc->data, mc->sz);
+		printf("\n");
 	}
 }
 
@@ -68,7 +73,7 @@ main(int argc, char *argv[]) {
 		struct evhttp_request *evreq = evhttp_request_new(on_http_response, cm);
 		evhttp_connection_set_base(evcon, base);
 
-		ret = evhttp_make_request(evcon, evreq, EVHTTP_REQ_GET, "/iframe");
+		ret = evhttp_make_request(evcon, evreq, EVHTTP_REQ_GET, "/subscribe?name=lol");
 		evhttp_request_set_chunked_cb(evreq, on_http_chunk);
 	}
 
