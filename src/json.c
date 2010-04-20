@@ -11,7 +11,7 @@ json_escape(const char *data, size_t len, size_t *out_len) {
 	size_t i = 0, j = 0;
 	for(i = 0; i < len; ++i) {
 		/* count quotes */
-		if(data[i] == '"') {
+		if(data[i] == '"' || data[i] == '\\') {
 			j++;
 		}
 		j++;
@@ -22,7 +22,7 @@ json_escape(const char *data, size_t len, size_t *out_len) {
 	j = 0;
 	/* copy into output buffer */
 	for(i = 0; i < len; ++i) {
-		if(data[i] == '"') {
+		if(data[i] == '"' || data[i] == '\\') {
 			ret[j] = '\\';
 			j++;
 		}
