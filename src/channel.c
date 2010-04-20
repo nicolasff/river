@@ -88,6 +88,7 @@ channel_new_connection(int fd, int keep_connected) {
 	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
 	/* printf("calloc pcu=%p\n", (void*)pcu); */
 	pcu->fd = fd;
+	pcu->free_on_remove = 1;
 	pcu->keep_connected = keep_connected;
 
 	/* printf("return pcu=%p\n", (void*)pcu); */
@@ -125,8 +126,10 @@ channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu) {
 	if(channel->user_list == pcu) {
 		channel->user_list = NULL;
 	}
-	/* printf("free pcu=%p\n", (void*)pcu); */
-	free(pcu);
+	if(pcu->free_on_remove) {
+		/* printf("free pcu=%p\n", (void*)pcu); */
+		free(pcu);
+	}
 }
 
 void

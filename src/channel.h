@@ -9,6 +9,7 @@
 struct p_channel_user {
 	int fd;
 	int keep_connected;
+	int free_on_remove;
 
 	struct p_channel_user *prev;
 	struct p_channel_user *next;

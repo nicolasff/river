@@ -135,6 +135,7 @@ on_client_too_old(int fd, short event, void *arg) {
 	CHANNEL_LOCK(ut->channel);
 	channel_del_connection(ut->channel, ut->pcu);
 	CHANNEL_UNLOCK(ut->channel);
+	free(ut->pcu);
 	free(ut);
 }
 
@@ -200,11 +201,13 @@ http_dispatch_subscribe(struct http_request *req) {
 
 	/* stay connected: add pcu to channel. */
 	channel_add_connection(channel, pcu);
-	CHANNEL_UNLOCK(channel);
 
 	/* add timeout to avoid keeping the user for too long. */
 	if(__cfg->client_timeout > 0) {
 		struct user_timeout *ut;
+
+		pcu->free_on_remove = 0;
+		CHANNEL_UNLOCK(channel);
 
 		ut = calloc(1, sizeof(struct user_timeout));
 		ut->pcu = pcu;
@@ -218,6 +221,8 @@ http_dispatch_subscribe(struct http_request *req) {
 		timeout_set(&ut->ev, on_client_too_old, ut);
 		event_base_set(req->base, &ut->ev);
 		timeout_add(&ut->ev, &ut->tv);
+	} else {
+		CHANNEL_UNLOCK(channel);
 	}
 
 	return ret;
