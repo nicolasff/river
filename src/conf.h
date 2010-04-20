@@ -7,8 +7,6 @@ struct conf {
 	char *ip;
 	short port;
 
-	char *channel_key;
-
 	int threads;
 
 	int client_timeout;

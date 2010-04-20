@@ -40,7 +40,6 @@ char *
 json_msg(const char *channel, size_t channel_len,
 		const unsigned long long seq,
 		const char *data, size_t data_len,
-		const char *payload, size_t payload_len,
 		size_t *out_len) {
 
 	size_t needed = 0;
@@ -49,8 +48,7 @@ json_msg(const char *channel, size_t channel_len,
 	char fmt0[] = "[\"msg\", {\"channel\": \"";
 	char fmt1[] = "\", \"seq\": ";
 	char fmt2[] = ", \"data\": \"";
-	char fmt3[] = "\", \"payload\": \"";
-	char fmt4[] = "\"}]";
+	char fmt3[] = "\"}]";
 
 	char seq_str[40];
 	int seq_len = sprintf(seq_str, "%lld", seq);
@@ -66,9 +64,7 @@ json_msg(const char *channel, size_t channel_len,
 		+ seq_len
 		+ sizeof(fmt2)-1
 		+ data_len
-		+ sizeof(fmt3)-1
-		+ payload_len
-		+ sizeof(fmt4)-1;
+		+ sizeof(fmt3)-1;
 
 	pos = buffer = calloc(needed + 1, 1);
 	buffer[needed] = 0;
@@ -92,12 +88,6 @@ json_msg(const char *channel, size_t channel_len,
 	pos += data_len;
 
 	memcpy(pos, fmt3, sizeof(fmt3)-1);
-	pos += sizeof(fmt3)-1;
-
-	memcpy(pos, payload, payload_len);
-	pos += payload_len;
-
-	memcpy(pos, fmt4, sizeof(fmt4)-1);
 
 	if(out_len) {
 		*out_len = needed;

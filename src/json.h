@@ -7,7 +7,6 @@ char *
 json_msg(const char *channel, size_t channel_len,
 		const unsigned long long seq,
 		const char *data, size_t data_len,
-		const char *payload, size_t payload_len,
 		size_t *json_len);
 
 char *

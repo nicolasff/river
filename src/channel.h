@@ -35,7 +35,7 @@ struct p_channel {
 };
 
 void
-channel_init(char *key) ;
+channel_init() ;
 
 struct p_channel *
 channel_new(const char *name);
@@ -47,14 +47,16 @@ struct p_channel *
 channel_find(const char *name);
 
 struct p_channel_user *
-channel_add_connection(struct p_channel *, int fd, int keep_connected) ;
+channel_new_connection(int fd, int keep_connected);
+
+void
+channel_add_connection(struct p_channel *channel, struct p_channel_user *pcu);
 
 void
 channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu);
 
 void
-channel_write(struct p_channel *channel, const char *data, size_t data_len,
-		const char *payload, size_t payload_len);
+channel_write(struct p_channel *channel, const char *data, size_t data_len);
 
 int
 channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsigned long long seq);

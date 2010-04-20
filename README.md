@@ -13,18 +13,17 @@ git submodule update
 
 3 - In a terminal, run:
 <pre>
-curl "http://127.0.0.1:1234/meta/newchannel?name=public-channel&key=c4rp2n3H5KzX"
-curl "http://127.0.0.1:1234/meta/connect?name=public-channel"
+curl "http://127.0.0.1:1234/subscribe?name=public-channel"
 </pre>
-The last HTTP call (`/meta/connect`) is blocking.
+The call to `/subscribe` is blocking.
 
 
 4 - And then, in another terminal:
 <pre>
-curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of-comet&payload=xxx"
+curl "http://127.0.0.1:1234/publish?name=public-channel&data=hello-world-of-comet"
 </pre>
 
-5 - The `/meta/connect` call returns, with the data published in the channel.
+5 - The call to `/subscribe` returns, with the data published in the channel.
 
 ### Notes
 * /meta/connect takes 2 more (optional) parameters:
@@ -35,7 +34,6 @@ curl "http://127.0.0.1:1234/meta/publish?name=public-channel&data=hello-world-of
 
 #### TODO
 * Complete iframe page.
-* Remove channel creation, making it automatic upon subscribing?
 * Add JSONP callback parameter.
 * Add support for HTML5 WebSockets
 * Lots of cleanup code.

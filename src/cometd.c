@@ -27,7 +27,7 @@ main(int argc, char *argv[]) {
 	}
 
 	http_init(cfg);
-	channel_init(cfg->channel_key);
+	channel_init();
 	server_run(cfg->threads, cfg->ip, cfg->port);
 
 	while(1) {

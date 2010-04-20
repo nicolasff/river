@@ -40,8 +40,6 @@ conf_read(const char *filename) {
 			conf->port = (short)atoi(ret + 5);
 		} else if(strncmp(ret, "threads ", 8) == 0) {
 			conf->threads = (int)atoi(ret + 8);
-		} else if(strncmp(ret, "channelkey ", 11) == 0) {
-			conf->channel_key = strdup(ret + 11);
 		} else if(strncmp(ret, "client_timeout", 14) == 0) {
 			conf->client_timeout = (int)atoi(ret + 14);
 		}
@@ -60,7 +58,6 @@ void
 conf_free(struct conf *conf) {
 
 	free(conf->ip);
-	free(conf->channel_key);
 
 	free(conf);
 }

@@ -6,6 +6,10 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <event.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/types.h>
+
 
 #include "http_dispatch.h"
 #include "channel.h"
@@ -17,11 +21,39 @@
 
 static struct conf *__cfg;
 
+static char *iframe_buffer = NULL;
+static size_t iframe_buffer_len = -1;
+
 void
 http_init(struct conf *cfg) {
 
+	struct stat st;
+	int ret, fp;
+	size_t remain;
+	const char filename[] = "iframe.js";
 	/* eww. */
 	__cfg = cfg;
+
+	ret = stat(filename, &st);
+	if(ret != 0) {
+		return;
+	}
+	iframe_buffer_len = st.st_size;
+	if(!(iframe_buffer = calloc(iframe_buffer_len, 1))) {
+		iframe_buffer_len = -1;
+		return;
+	}
+	remain = iframe_buffer_len;
+	fp = open(filename, O_RDONLY);
+	while(remain) {
+		int count = read(fp, iframe_buffer + iframe_buffer_len - remain, remain);
+		if(count <= 0) {
+			free(iframe_buffer);
+			iframe_buffer_len = -1;
+			return;
+		}
+		remain -= count;
+	}
 }
 
 static void
@@ -48,14 +80,12 @@ send_reply(struct http_request *req, int error) {
 int
 http_dispatch(struct http_request *req) {
 
-	if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/publish", 13)) {
-		return http_dispatch_meta_publish(req);
-	} else if(req->path_len == 13 && 0 == strncmp(req->path, "/meta/connect", 13)) {
-		return http_dispatch_meta_read(req);
-	} else if(req->path_len == 16 && 0 == strncmp(req->path, "/meta/newchannel", 16)) {
-		return http_dispatch_meta_newchannel(req);
-	} else if(req->path_len == 1 && 0 == strncmp(req->path, "/", 1)) {
-		return http_dispatch_root(req);
+	if(req->path_len == 8 && 0 == strncmp(req->path, "/publish", 8)) {
+		return http_dispatch_publish(req);
+	} else if(req->path_len == 10 && 0 == strncmp(req->path, "/subscribe", 10)) {
+		return http_dispatch_subscribe(req);
+	} else if(req->path_len == 7 && 0 == strncmp(req->path, "/iframe", 7)) {
+		return http_dispatch_iframe(req);
 	}
 
 	return 0;
@@ -66,41 +96,23 @@ http_dispatch(struct http_request *req) {
  * Return generic page for iframe inclusion
  */
 int
-http_dispatch_root(struct http_request *req) {
-
-
-	char *domain;
-	int domain_len;
+http_dispatch_iframe(struct http_request *req) {
 
 	dictEntry *de;
-	if((de = dictFind(req->get, "domain"))) {
-		domain = de->val;
-		domain_len = de->size;
-	} else {
-		printf("FFUUU\n");
-		send_reply(req, 403);
-		return 0;
-	}
 
-	char buffer_start[] = "<html><body><script>\ndocument.domain=\"";
+	char buffer_start[] = "<html><body><script type=\"text/javascript\">\ndocument.domain=\"";
 	char buffer_domain[] = "\";\n";
 	char buffer_end[] = "</script></body></html>\n";
 
-	FILE *f  = fopen("iframe.js", "r");
-
 	http_streaming_start(req->fd, 200, "OK");
 	http_streaming_chunk(req->fd, buffer_start, sizeof(buffer_start)-1);
-	http_streaming_chunk(req->fd, domain, domain_len);
+	if(req->get && (de = dictFind(req->get, "domain"))) {
+		http_streaming_chunk(req->fd, de->val, de->size);
+	}
 	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
 
-	while(!feof(f)) {
-		char line[1024], *p;
-		p = fgets(line, sizeof(line), f);
-		if(!p) {
-			break;
-		}
-		http_streaming_chunk(req->fd, p, strlen(p));
-	}
+	/* iframe.js */
+	http_streaming_chunk(req->fd, iframe_buffer, iframe_buffer_len);
 
 	http_streaming_chunk(req->fd, buffer_end, sizeof(buffer_end)-1);
 	http_streaming_end(req->fd);
@@ -132,13 +144,12 @@ on_client_too_old(int fd, short event, void *arg) {
  * Parameters: name, [seq], [keep]
  */
 int
-http_dispatch_meta_read(struct http_request *req) {
+http_dispatch_subscribe(struct http_request *req) {
 
-	int success = 1;
-	int ret;
+	int ret = 1;
 	struct p_channel *channel = NULL;
 
-	int keep_connected = 1;
+	int keep_connected = 1, has_seq = 0;
 	unsigned long long seq = 0;
 	char *name = NULL;
 	dictEntry *de;
@@ -148,46 +159,65 @@ http_dispatch_meta_read(struct http_request *req) {
 	}
 	if((de = dictFind(req->get, "seq"))) { /* optional */
 		seq = atol(de->val);
+		has_seq = 1;
 	}
 	if((de = dictFind(req->get, "keep"))) { /* optional */
+		/* printf("has keep para: [%s]\n", de->val); */
 		keep_connected = atol(de->val);
 	}
 
 	/* find channel */
 	if(!(channel = channel_find(name))) {
-		success = 0;
+		channel = channel_new(name);
 	}
 
-	if(success) {
-		struct p_channel_user *pcu;
-		pcu = channel_add_connection(channel, req->fd, keep_connected);
-		http_streaming_start(req->fd, 200, "OK");
-		if(seq) {
-			ret = channel_catchup_user(channel, pcu, seq);
-			/* done catching-up. ret=0 if we need to close the connection. */
+	struct p_channel_user *pcu;
+	pcu = channel_new_connection(req->fd, keep_connected);
+	http_streaming_start(req->fd, 200, "OK");
+
+	/* 3 cases:
+	 *
+	 * 1 - catch-up followed by close
+	 * 2 - catch-up followed by stay connected
+	 * 3 - connect and stay connected
+	 **/
+
+	CHANNEL_LOCK(channel);
+	/* chan is locked, check if we need to catch-up */
+	if(has_seq && seq < channel->seq) {
+		ret = channel_catchup_user(channel, pcu, seq);
+		/* case 1 */
+		if(ret == 0) {
+			free(pcu);
+			CHANNEL_UNLOCK(channel);
+			return 0;
 		} else {
-			ret = 1; /* this means: do not close the connection. */
-		}
-		/* add timeout to avoid keeping the user for too long. */
-		if(ret == 1 && __cfg->client_timeout > 0) {
-			struct user_timeout *ut;
-
-			ut = calloc(1, sizeof(struct user_timeout));
-			ut->pcu = pcu;
-			ut->channel = channel;
-
-			/* timeout value. */
-			ut->tv.tv_sec = __cfg->client_timeout;
-			ut->tv.tv_usec = 0;
-
-			/* add timeout event */
-			timeout_set(&ut->ev, on_client_too_old, ut);
-			event_base_set(req->base, &ut->ev);
-			timeout_add(&ut->ev, &ut->tv);
+			/* case 2*/
 		}
 	} else {
-		send_reply(req, 403);
-		ret = 0;
+		/* case 3 */
+	}
+
+	/* stay connected: add pcu to channel. */
+	channel_add_connection(channel, pcu);
+	CHANNEL_UNLOCK(channel);
+
+	/* add timeout to avoid keeping the user for too long. */
+	if(__cfg->client_timeout > 0) {
+		struct user_timeout *ut;
+
+		ut = calloc(1, sizeof(struct user_timeout));
+		ut->pcu = pcu;
+		ut->channel = channel;
+
+		/* timeout value. */
+		ut->tv.tv_sec = __cfg->client_timeout;
+		ut->tv.tv_usec = 0;
+
+		/* add timeout event */
+		timeout_set(&ut->ev, on_client_too_old, ut);
+		event_base_set(req->base, &ut->ev);
+		timeout_add(&ut->ev, &ut->tv);
 	}
 
 	return ret;
@@ -199,13 +229,13 @@ http_dispatch_meta_read(struct http_request *req) {
  * Parameters: name (channel name), data.
  */
 int
-http_dispatch_meta_publish(struct http_request *req) {
+http_dispatch_publish(struct http_request *req) {
 
 	struct p_channel *channel;
 
 	dictEntry *de;
-	char *name = NULL, *data = NULL, *payload = NULL;
-	size_t data_len = 0, payload_len = 0;
+	char *name = NULL, *data = NULL;
+	size_t data_len = 0;
 
 	if((de = dictFind(req->get, "name"))) {
 		name = de->val;
@@ -213,10 +243,6 @@ http_dispatch_meta_publish(struct http_request *req) {
 	if((de = dictFind(req->get, "data"))) {
 		data = de->val;
 		data_len = de->size;
-	}
-	if((de = dictFind(req->get, "payload"))) {
-		payload = de->val;
-		payload_len = de->size;
 	}
 	if(!name || !data) {
 		send_reply(req, 403);
@@ -232,43 +258,8 @@ http_dispatch_meta_publish(struct http_request *req) {
 	send_reply(req, 200);
 
 	/* send to all channel users. */
-	channel_write(channel, data, data_len, payload, payload_len);
+	channel_write(channel, data, data_len);
 
-	return 0;
-}
-
-/* eww. */
-extern char *channel_creation_key;
-/**
- * Creates a new channel.
- * Parameters: name, key
- */
-int
-http_dispatch_meta_newchannel(struct http_request *req) {
-
-	/* get (name, key) parameters */
-	char *name = NULL, *key = NULL;
-	dictEntry *de;
-
-	if((de = dictFind(req->get, "name"))) {
-		name = de->val;
-	}
-	if((de = dictFind(req->get, "key"))) {
-		key = de->val;
-	}
-	if(!key || strcmp(key, channel_creation_key) != 0) {
-		send_reply(req, 403);
-		return 0;
-	}
-
-
-	/* create channel */
-	if(NULL == channel_find(name)) {
-		channel_new(name);
-		send_reply(req, 200);
-	} else {
-		send_reply(req, 403);
-	}
 	return 0;
 }
 

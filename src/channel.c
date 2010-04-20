@@ -20,11 +20,9 @@
  */
 static dict *__channels = NULL;
 static pthread_mutex_t channels_lock;
-char *channel_creation_key = NULL;
 
 void
-channel_init(char *key) {
-	channel_creation_key = key;
+channel_init() {
 	if(NULL == __channels) {
 		pthread_mutex_init(&channels_lock, NULL);
 		__channels = dictCreate(&dictTypeCopyNoneFreeNone, NULL);
@@ -85,13 +83,19 @@ channel_free(struct p_channel * p) {
 }
 
 struct p_channel_user *
-channel_add_connection(struct p_channel *channel, int fd, int keep_connected) {
+channel_new_connection(int fd, int keep_connected) {
 
 	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
+	/* printf("calloc pcu=%p\n", (void*)pcu); */
 	pcu->fd = fd;
 	pcu->keep_connected = keep_connected;
 
-	CHANNEL_LOCK(channel);
+	/* printf("return pcu=%p\n", (void*)pcu); */
+	return pcu;
+}
+
+void
+channel_add_connection(struct p_channel *channel, struct p_channel_user *pcu) {
 
 	/* add user to the front of the list */
 	if(channel->user_list) {
@@ -99,10 +103,6 @@ channel_add_connection(struct p_channel *channel, int fd, int keep_connected) {
 	}
 	pcu->next = channel->user_list;
 	channel->user_list = pcu;
-
-	CHANNEL_UNLOCK(channel);
-
-	return pcu;
 }
 
 void
@@ -122,13 +122,15 @@ channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu) {
 			channel->user_list->prev = NULL;
 		}
 	}
-
+	if(channel->user_list == pcu) {
+		channel->user_list = NULL;
+	}
+	/* printf("free pcu=%p\n", (void*)pcu); */
 	free(pcu);
 }
 
 void
-channel_write(struct p_channel *channel, const char *data, size_t data_len,
-		const char *payload, size_t payload_len) {
+channel_write(struct p_channel *channel, const char *data, size_t data_len) {
 
 	struct p_channel_user *pcu;
 	struct p_channel_message *msg;
@@ -147,7 +149,6 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len,
 	msg->data = json_msg(channel->name, channel->name_len,
 			msg->seq,
 			data, data_len,
-			payload, payload_len,
 			&msg->data_len);
 
 	/* incr log pointer */
@@ -160,9 +161,11 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len,
 		int ret = http_streaming_chunk(pcu->fd, msg->data, msg->data_len);
 		if(ret != (int)msg->data_len) { /* failed write */
 			close(pcu->fd);
+		/* printf("channel_del_connection (pcu=%p), %s:%d\n", (void*)pcu, __FILE__, __LINE__); */
 			channel_del_connection(channel, pcu);
 		} else if(!pcu->keep_connected) {
 			http_streaming_end(pcu->fd);
+		/* printf("channel_del_connection (pcu=%p), %s:%d\n", (void*)pcu, __FILE__, __LINE__); */
 			channel_del_connection(channel, pcu);
 		}
 		pcu = next;
@@ -174,7 +177,7 @@ int
 channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsigned long long seq) {
 
 	struct p_channel_message *msg;
-	int pos, first, last, ret;
+	int pos, first, last, ret, sent_data = 0;
 	int success = 1, found = 0;
 
 	last = LOG_CUR(channel);
@@ -204,24 +207,17 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsi
 		if(ret != (int)msg->data_len) { /* failed write */
 			success = 0;
 			break;
+		} else {
+			sent_data = 1;
 		}
 	}
 
 	if(0 == success) {
-		/* success=0, remove pcu */
-		close(pcu->fd);
-		CHANNEL_LOCK(channel);
-		channel_del_connection(channel, pcu);
-		CHANNEL_UNLOCK(channel);
-	} else if(!pcu->keep_connected) {
-		/* keep=0, remove pcu\n */
-		http_streaming_end(pcu->fd);
-		CHANNEL_LOCK(channel);
-		channel_del_connection(channel, pcu);
-		CHANNEL_UNLOCK(channel);
-	} else {
-		return 1;
+		return 0;
 	}
-	return 0;
+	if(sent_data && (!pcu->keep_connected)) {
+		return 0;
+	}
+	return 1;
 }
 
