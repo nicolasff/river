@@ -7,7 +7,9 @@
 #include <event.h>
 #include <evhttp.h>
 
-/* create a generic channel name */
+/**
+ * Creates a generic channel name
+ */
 char *
 channel_make_name() {
 	char *out = calloc(21, 1);
@@ -163,14 +165,16 @@ main(int argc, char *argv[]) {
 	struct timespec t0, t1;
 
 	clock_gettime(CLOCK_MONOTONIC, &t0);
+	srand(time(NULL));
+
 	int reader_count = 100;
 	int writer_count = 100;
 	int request_count = 1000000;
 
 	char *chan = channel_make_name();
 
-	printf("Running %d readers\n", reader_count);
 	/* run readers */
+	printf("Running %d readers\n", reader_count);
 	pthread_t reader_thread;
 	struct reader_thread rt;
 	rt.chan = chan;
@@ -179,6 +183,7 @@ main(int argc, char *argv[]) {
 	pthread_create(&reader_thread, NULL, comet_run_readers, &rt);
 
 
+	/* run writers */
 	printf("Running %d writers\n", writer_count);
 	pthread_t writer_thread;
 	struct writer_thread wt;
@@ -189,7 +194,7 @@ main(int argc, char *argv[]) {
 	/* wait for readers to finish */
 	pthread_join(reader_thread, NULL);
 
-
+	/* timing */
 	clock_gettime(CLOCK_MONOTONIC, &t1);
 	float mili0 = t0.tv_sec * 1000 + t0.tv_nsec / 1000000;
 	float mili1 = t1.tv_sec * 1000 + t1.tv_nsec / 1000000;
