@@ -1,115 +1,199 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <pthread.h>
 
 #include <event.h>
 #include <evhttp.h>
-#include <unistd.h>
 
-int remaining_requests = 10000;
+/* create a generic channel name */
+char *
+channel_make_name() {
+	char *out = calloc(21, 1);
+	snprintf(out, 20, "chan-%d", rand());
+	return out;
+}
 
-struct message_chunk {
-	char *data;
-	size_t sz;
-	struct message_chunk *next;
+/* reader thread, with counter of remaining messages */
+struct reader_thread {
+	int reader_count;
+	struct event_base *base;
+	char *chan;
+
+	int request_count;
+	int byte_count;
 };
-struct comet_message {
-	struct event_base        *base;
-	struct evhttp_connection *evcon;
-	struct message_chunk     *first;
-	struct message_chunk     *last;
+
+struct writer_thread {
+	int writer_count;
+	struct event_base *base;
+	char *chan;
+	int byte_count;
+
+	char *url;
 };
 
+/* readers */
+
+/**
+ * Called when a message is sent on the channel pipe.
+ */
 void
-queue_request(struct event_base *base);
+on_message_chunk(struct evhttp_request *req, void *ptr) {
 
+	struct reader_thread *rt = ptr;
 
-void
-on_http_response(struct evhttp_request *req, void *ptr){
+	if(req->response_code == HTTP_OK) {
+		size_t sz = EVBUFFER_LENGTH(req->input_buffer);
+		rt->byte_count += sz;
+		if(rt->request_count % 10000 == 0) {
+	      		printf("%8d messages left (got %9d bytes so far).\n",
+				rt->request_count, rt->byte_count);
+		}
 
-	struct comet_message *cm = ptr;
-	printf("on_http_response finished (%d remain).\n", remaining_requests);
-	if(!req || !cm || !cm->first) {
-		return;
-	}
-
-	if(req->response_code != HTTP_OK) {
-		printf("FAIL (response_code=%d)\n", req->response_code);
+		/* decrement read count, and stop receiving when we reach zero. */
+		rt->request_count--;
+		if(rt->request_count == 0) {
+			event_base_loopexit(rt->base, NULL);
+		}
 	} else {
-		size_t total = 0;
-		struct event_base *base = cm->base;
-		struct message_chunk *mc, *mc_next;
-		for(mc = cm->first; mc; mc = mc_next) {
-			total += mc->sz;
-			mc_next = mc->next;
-			free(mc->data);
-			free(mc);
-		}
-		free(cm);
-		evhttp_connection_free(cm->evcon);
-		// printf("SUCCESS: got %zd bytes\n", total);
-		remaining_requests--;
-		if(remaining_requests > 0) {
-			queue_request(base);
-		} else {
-			_exit(0);
-		}
+		/* fprintf(stderr, "CHUNK FAIL (ret=%d)\n", req->response_code); */
 	}
 }
 
+/**
+ * Called when a channel pipe is closed.
+ */
 void
-on_http_chunk(struct evhttp_request *req, void *ptr) {
+on_end_of_subscribe(struct evhttp_request *req, void *nil){
+	(void)nil;
 
-	struct comet_message *cm = ptr;
-
-	if(req->response_code != HTTP_OK) {
-		printf("CHUNK FAIL (ret=%d)\n", req->response_code);
-	} else {
-		struct message_chunk *mc = calloc(1, sizeof(struct message_chunk));
-		if(cm->last == NULL) {
-			cm->first = cm->last = mc;
-		} else {
-			cm->last->next = mc;
-			cm->last = mc;
-		}
-		mc->sz = EVBUFFER_LENGTH(req->input_buffer);
-		/*
-		mc->data = calloc(mc->sz, 1);
-		evbuffer_remove(req->input_buffer, mc->data, mc->sz);
-		printf("CHUNK SUCCESS: %zd\n", mc->sz);
-		write(1, mc->data, mc->sz);
-		printf("\n");
-		*/
+	if(!req || req->response_code != HTTP_OK) {
+		/* fprintf(stderr, "subscribe FAIL (response_code=%d)\n", req->response_code); */
 	}
 }
 
+/**
+ * pthread entry point, running the reader event base.
+ */
+void *
+comet_run_readers(void *ptr) {
+
+	struct reader_thread *rt = ptr;
+	int i;
+	char *url = calloc(strlen(rt->chan) + 17, 1);
+	sprintf(url, "/subscribe?name=%s", rt->chan);
+	rt->base = event_base_new();
+
+	for(i = 0; i < rt->reader_count; ++i) {
+
+		struct evhttp_connection *evcon = evhttp_connection_new("127.0.0.1", 1234);
+		struct evhttp_request *evreq = evhttp_request_new(on_end_of_subscribe, rt);
+
+		evhttp_connection_set_base(evcon, rt->base);
+		evhttp_request_set_chunked_cb(evreq, on_message_chunk);
+		evhttp_make_request(evcon, evreq, EVHTTP_REQ_GET, url);
+		/* printf("[SUBSCRIBE: http://127.0.0.1:1234%s]\n", url); */
+	}
+	event_base_dispatch(rt->base);
+	return NULL;
+}
+
+/* writers */
+
 void
-queue_request(struct event_base *base) {
+publish(struct writer_thread *wt);
 
-	struct comet_message *cm = calloc(1, sizeof(struct comet_message));
 
-	cm->evcon = evhttp_connection_new("127.0.0.1", 1234);
-	struct evhttp_request *evreq = evhttp_request_new(on_http_response, cm);
+/**
+ * Called after a publish query has returned.
+ */
+void
+on_end_of_publish(struct evhttp_request *req, void *ptr){
+	(void)req;
 
-	evhttp_connection_set_base(cm->evcon, base);
-	cm->base = base;
-	evhttp_request_set_chunked_cb(evreq, on_http_chunk);
-	evhttp_make_request(cm->evcon, evreq, EVHTTP_REQ_GET, "/iframe"); // "/subscribe?name=lol");
+	struct writer_thread *wt = ptr;
+
+	/* enqueue another publication */
+	publish(wt);
+}
+
+/**
+ * Enqueue an HTTP request to /publish in the writer thread's event base.
+ */
+void
+publish(struct writer_thread *wt) {
+	struct evhttp_connection *evcon = evhttp_connection_new("127.0.0.1", 1234);
+	struct evhttp_request *evreq = evhttp_request_new(on_end_of_publish, wt);
+
+	evhttp_connection_set_base(evcon, wt->base);
+	evhttp_make_request(evcon, evreq, EVHTTP_REQ_GET, wt->url);
+	/* printf("[PUBLISH: http://127.0.0.1:1234%s]\n", wt->url); */
+}
+
+/**
+ * pthread entry point, running the writer event base.
+ */
+void *
+comet_run_writers(void *ptr) {
+
+	int i;
+
+	struct writer_thread *wt = ptr;
+	wt->base = event_base_new();
+
+	char template[] = "/publish?name=%s&data=hello-world";
+	wt->url = calloc(strlen(wt->chan) + sizeof(template), 1);
+	sprintf(wt->url, template, wt->chan);
+
+	for(i = 0; i < wt->writer_count; ++i) {
+		publish(wt);
+	}
+	event_base_dispatch(wt->base);
+
+	free(wt->url);
+	return NULL;
 }
 
 int
 main(int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
+	struct timespec t0, t1;
 
-	int i, client_count = 100;
+	clock_gettime(CLOCK_MONOTONIC, &t0);
+	int reader_count = 100;
+	int writer_count = 100;
+	int request_count = 1000000;
 
-	struct event_base *base = event_base_new();
+	char *chan = channel_make_name();
 
-	for(i = 0; i < client_count; ++i) {
-		queue_request(base);
-	}
+	printf("Running %d readers\n", reader_count);
+	/* run readers */
+	pthread_t reader_thread;
+	struct reader_thread rt;
+	rt.chan = chan;
+	rt.reader_count = reader_count;
+	rt.request_count = request_count;
+	pthread_create(&reader_thread, NULL, comet_run_readers, &rt);
 
-	event_base_dispatch(base);
+
+	printf("Running %d writers\n", writer_count);
+	pthread_t writer_thread;
+	struct writer_thread wt;
+	wt.chan = chan;
+	wt.writer_count = writer_count;
+	pthread_create(&writer_thread, NULL, comet_run_writers, &wt);
+
+	/* wait for readers to finish */
+	pthread_join(reader_thread, NULL);
+
+
+	clock_gettime(CLOCK_MONOTONIC, &t1);
+	float mili0 = t0.tv_sec * 1000 + t0.tv_nsec / 1000000;
+	float mili1 = t1.tv_sec * 1000 + t1.tv_nsec / 1000000;
+	printf("Read %d messages in %0.2f sec: %0.2f/sec\n", request_count, (mili1-mili0)/1000.0, 1000*(float)request_count/(mili1-mili0));
 
 	return EXIT_SUCCESS;
 }

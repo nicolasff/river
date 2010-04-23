@@ -1,6 +1,6 @@
 OUT=bench
 OBJS=bench.o
-CFLAGS=-O3 -ggdb -Wall -Wextra
+CFLAGS=-O3 -Wall -Wextra
 LDFLAGS=-levent -lpthread
 
 all: $(OUT) Makefile
