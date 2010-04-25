@@ -17,8 +17,14 @@ channel_make_name() {
 	return out;
 }
 
+struct host_info {
+	char *host;
+	short port;
+};
+
 /* reader thread, with counter of remaining messages */
 struct reader_thread {
+	struct host_info *hi;
 	int reader_count;
 	struct event_base *base;
 	char *chan;
@@ -28,6 +34,7 @@ struct reader_thread {
 };
 
 struct writer_thread {
+	struct host_info *hi;
 	int writer_count;
 	struct event_base *base;
 	char *chan;
@@ -90,7 +97,7 @@ comet_run_readers(void *ptr) {
 
 	for(i = 0; i < rt->reader_count; ++i) {
 
-		struct evhttp_connection *evcon = evhttp_connection_new("127.0.0.1", 1234);
+		struct evhttp_connection *evcon = evhttp_connection_new(rt->hi->host, rt->hi->port);
 		struct evhttp_request *evreq = evhttp_request_new(on_end_of_subscribe, rt);
 
 		evhttp_connection_set_base(evcon, rt->base);
@@ -126,7 +133,7 @@ on_end_of_publish(struct evhttp_request *req, void *ptr){
  */
 void
 publish(struct writer_thread *wt) {
-	struct evhttp_connection *evcon = evhttp_connection_new("127.0.0.1", 1234);
+	struct evhttp_connection *evcon = evhttp_connection_new(wt->hi->host, wt->hi->port);
 	struct evhttp_request *evreq = evhttp_request_new(on_end_of_publish, wt);
 
 	evhttp_connection_set_base(evcon, wt->base);
@@ -173,11 +180,16 @@ main(int argc, char *argv[]) {
 
 	char *chan = channel_make_name();
 
+	struct host_info hi;
+	hi.host = "127.0.0.1";
+	hi.port = 1234;
+
 	/* run readers */
 	printf("Running %d readers\n", reader_count);
 	pthread_t reader_thread;
 	struct reader_thread rt;
 	rt.chan = chan;
+	rt.hi = &hi;
 	rt.reader_count = reader_count;
 	rt.request_count = request_count;
 	pthread_create(&reader_thread, NULL, comet_run_readers, &rt);
@@ -188,6 +200,7 @@ main(int argc, char *argv[]) {
 	pthread_t writer_thread;
 	struct writer_thread wt;
 	wt.chan = chan;
+	wt.hi = &hi;
 	wt.writer_count = writer_count;
 	pthread_create(&writer_thread, NULL, comet_run_writers, &wt);
 
