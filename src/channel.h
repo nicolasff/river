@@ -10,6 +10,8 @@ struct p_channel_user {
 	int fd;
 	int keep_connected;
 	int free_on_remove;
+	char *jsonp;
+	int jsonp_len;
 
 	struct p_channel_user *prev;
 	struct p_channel_user *next;
@@ -50,7 +52,7 @@ struct p_channel *
 channel_find(const char *name);
 
 struct p_channel_user *
-channel_new_connection(int fd, int keep_connected);
+channel_new_connection(int fd, int keep_connected, const char *jsonp);
 
 void
 channel_add_connection(struct p_channel *channel, struct p_channel_user *pcu);

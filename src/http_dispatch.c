@@ -153,6 +153,7 @@ http_dispatch_subscribe(struct http_request *req) {
 	int keep_connected = 1, has_seq = 0;
 	unsigned long long seq = 0;
 	char *name = NULL;
+	char *jsonp = NULL;
 	dictEntry *de;
 
 	if((de = dictFind(req->get, "name"))) {
@@ -166,6 +167,9 @@ http_dispatch_subscribe(struct http_request *req) {
 		/* printf("has keep para: [%s]\n", de->val); */
 		keep_connected = atol(de->val);
 	}
+	if((de = dictFind(req->get, "callback"))) { /* optional */
+		jsonp = de->val;
+	}
 
 	/* find channel */
 	if(!(channel = channel_find(name))) {
@@ -173,7 +177,7 @@ http_dispatch_subscribe(struct http_request *req) {
 	}
 
 	struct p_channel_user *pcu;
-	pcu = channel_new_connection(req->fd, keep_connected);
+	pcu = channel_new_connection(req->fd, keep_connected, jsonp);
 	http_streaming_start(req->fd, 200, "OK");
 
 	/* 3 cases:
@@ -189,6 +193,7 @@ http_dispatch_subscribe(struct http_request *req) {
 		ret = channel_catchup_user(channel, pcu, seq);
 		/* case 1 */
 		if(ret == HTTP_DISCONNECT) {
+			free(pcu->jsonp);
 			free(pcu);
 			CHANNEL_UNLOCK(channel);
 			return HTTP_DISCONNECT;
