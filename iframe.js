@@ -97,7 +97,9 @@ function CometClient(host){
 		var comet = this;
 		comet.xhr = new XMLHttpRequest;
 		comet.pos = 0;
-		comet.reconnectionTimeout = window.setTimeout(function() {comet.disconnect(); comet.connect(channel, onMsg);}, 5000);
+		if(comet.canStream) {
+			comet.reconnectionTimeout = window.setTimeout(function() {comet.disconnect(); comet.connect(channel, onMsg);}, 5000);
+		}
 
 		var url = "http://"+this.host+"/subscribe?name="+channel+"&keep="+this.canStream+"&seq="+this.seq;
 		// console.log(url);
@@ -150,13 +152,14 @@ function CometClient(host){
 									if(onMsg) {
 										try {
 											onMsg(obj[1]);
-										} catch(e) {} // ignore
+										} catch(e) {} // ignore client errors
 									}
-								} // in the case of a wrong channel, raise error? (TODO)
+								}
 								break;
 						}
 					} catch(e) { // TODO: how do we handle errors?
 						// console.log("fail line 66:", e);
+						comet.xhr.abort(); // avoid duplicates upon reconnection
 						setTimeout(function() {
 							comet.connect(channel, onMsg);
 						}, 1000); // reconnect soon.
