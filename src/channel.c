@@ -226,6 +226,7 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsi
 		return HTTP_DISCONNECT;
 	}
 	if(sent_data && (!pcu->keep_connected)) {
+		http_streaming_end(pcu->fd);
 		return HTTP_DISCONNECT;
 	}
 	return HTTP_KEEP_CONNECTED;
