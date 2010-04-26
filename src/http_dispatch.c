@@ -19,6 +19,8 @@
 #include "dict.h"
 #include "conf.h"
 
+#define RELOAD_IFRAME_EVERY_TIME 0
+
 static struct conf *__cfg;
 
 static char *iframe_buffer = NULL;
@@ -112,7 +114,19 @@ http_dispatch_iframe(struct http_request *req) {
 	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
 
 	/* iframe.js */
+#if RELOAD_IFRAME_EVERY_TIME
+	FILE *f = fopen("iframe.js", "r");
+	while(f && !feof(f)) {
+		char buffer[1000];
+		fgets(buffer, sizeof(buffer)-1, f);
+		http_streaming_chunk(req->fd, buffer, strlen(buffer));
+	}
+	if(f) {
+		fclose(f);
+	}
+#else
 	http_streaming_chunk(req->fd, iframe_buffer, iframe_buffer_len);
+#endif
 
 	http_streaming_chunk(req->fd, buffer_end, sizeof(buffer_end)-1);
 	http_streaming_end(req->fd);
