@@ -12,12 +12,6 @@ if(typeof XMLHttpRequest == "undefined") {
 	};
 }
 
-function ajax(url) {
-	var xhr = new XMLHttpRequest;
-	xhr.open("get",url, true);
-	xhr.send(null);
-}
-
 /**
  * Cuts the first part of a message and returns it. What's after is discarded.
  * if msg is '[abc][def]', this function will return '[abc]' only.
@@ -89,7 +83,9 @@ function CometClient(host){
 	this.send = function(channel, msg) {
 
 		var url = "http://" + this.host + "/publish?name="+channel+"&data="+msg;
-		ajax(url);
+		var xhr = new XMLHttpRequest;
+		xhr.open("get",url, true);
+		xhr.send(null);
 	}
 
 	this.connect = function(channel, onMsg) {

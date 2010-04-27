@@ -62,6 +62,10 @@ static void
 send_reply(struct http_request *req, int error) {
 
 	switch(error) {
+		case 400:
+			http_response(req->fd, 400, "Bad Request", "", 0);
+			break;
+
 		case 200:
 			http_response(req->fd, 200, "OK", "ok", 2);
 			break;
@@ -170,6 +174,11 @@ http_dispatch_subscribe(struct http_request *req) {
 	char *jsonp = NULL;
 	dictEntry *de;
 
+	if(!req->get) {
+		send_reply(req, 400);
+		return HTTP_DISCONNECT;
+	}
+
 	if((de = dictFind(req->get, "name"))) {
 		name = de->val;
 	}
@@ -183,6 +192,11 @@ http_dispatch_subscribe(struct http_request *req) {
 	}
 	if((de = dictFind(req->get, "callback"))) { /* optional */
 		jsonp = de->val;
+	}
+
+	if(!name) {
+		send_reply(req, 400);
+		return HTTP_DISCONNECT;
 	}
 
 	/* find channel */

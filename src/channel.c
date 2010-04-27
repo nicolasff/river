@@ -92,9 +92,13 @@ channel_new_connection(int fd, int keep_connected, const char *jsonp) {
 	pcu->keep_connected = keep_connected;
 
 	if(jsonp && *jsonp) {
-		pcu->jsonp_len = strlen(jsonp);
+		char prefix[] = "(";
+		pcu->jsonp_len = strlen(jsonp) + sizeof(prefix) - 1;
 		pcu->jsonp = calloc(pcu->jsonp_len + 1, 1);
-		memcpy(pcu->jsonp, jsonp, pcu->jsonp_len);
+
+		memcpy(pcu->jsonp, jsonp, pcu->jsonp_len - (sizeof(prefix)-1));
+		memcpy(pcu->jsonp + pcu->jsonp_len - (sizeof(prefix)-1),
+				prefix, sizeof(prefix)-1);
 	}
 
 	/* printf("return pcu=%p\n", (void*)pcu); */
@@ -168,14 +172,22 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len) {
 	for(pcu = channel->user_list; pcu; ) {
 		struct p_channel_user *next = pcu->next;
 		/* write message to connected user */
-		int ret = http_streaming_chunk(pcu->fd, msg->data, msg->data_len);
-		if(ret != (int)msg->data_len) { /* failed write */
+		
+		int ret, total = 0, expected_len = msg->data_len;
+		char jsonp_end[] = ");";
+		if(pcu->jsonp) {
+			expected_len += pcu->jsonp_len + sizeof(jsonp_end)-1;
+			total += http_streaming_chunk(pcu->fd, pcu->jsonp, pcu->jsonp_len);
+		}
+		total += (ret = http_streaming_chunk(pcu->fd, msg->data, msg->data_len));
+		if(pcu->jsonp) {
+			total += http_streaming_chunk(pcu->fd, jsonp_end, sizeof(jsonp_end)-1);
+		}
+		if(total != expected_len) { /* failed write */
 			close(pcu->fd);
-		/* printf("channel_del_connection (pcu=%p), %s:%d\n", (void*)pcu, __FILE__, __LINE__); */
 			channel_del_connection(channel, pcu);
 		} else if(!pcu->keep_connected) {
 			http_streaming_end(pcu->fd);
-		/* printf("channel_del_connection (pcu=%p), %s:%d\n", (void*)pcu, __FILE__, __LINE__); */
 			channel_del_connection(channel, pcu);
 		}
 		pcu = next;
