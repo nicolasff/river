@@ -174,7 +174,7 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len) {
 		/* write message to connected user */
 		
 		int ret, total = 0, expected_len = msg->data_len;
-		char jsonp_end[] = ");";
+		char jsonp_end[] = ");\r\n";
 		if(pcu->jsonp) {
 			expected_len += pcu->jsonp_len + sizeof(jsonp_end)-1;
 			total += http_streaming_chunk(pcu->fd, pcu->jsonp, pcu->jsonp_len);

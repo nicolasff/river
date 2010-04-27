@@ -289,7 +289,7 @@ http_dispatch_publish(struct http_request *req) {
 
 	/* find channel */
 	if(!(channel = channel_find(name))) {
-		send_reply(req, 403);
+		send_reply(req, 200); /* pretend we just did. */
 		return HTTP_DISCONNECT;
 	}
 
