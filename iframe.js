@@ -94,7 +94,7 @@ function CometClient(host){
 		comet.xhr = new XMLHttpRequest;
 		comet.pos = 0;
 		if(comet.canStream) {
-			comet.reconnectionTimeout = window.setTimeout(function() {comet.disconnect(); comet.connect(channel, onMsg);}, 5000);
+			comet.reconnectionTimeout = window.setTimeout(function() {comet.disconnect(); comet.connect(channel, onMsg);}, 25000);
 		}
 
 		var url = "http://"+this.host+"/subscribe?name="+channel+"&keep="+this.canStream+"&seq="+this.seq;
