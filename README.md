@@ -31,7 +31,7 @@ The following example considers the page to be at `example.com`, and the comet s
 
 1 - Add a reference to the `lib.js` script in your page:
 <pre>
-	<script type="text/javascript" src="http://cometd.example.com/lib.js?domain=example.com"></script>
+	&lt;script type="text/javascript" src="http://cometd.example.com/lib.js?domain=example.com"&gt;&lt;/script&gt;
 </pre>
 2 - Initialize the server:
 <pre>
