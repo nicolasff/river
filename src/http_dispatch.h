@@ -29,6 +29,9 @@ http_action
 http_dispatch_iframe(struct http_request *req);
 
 http_action
+http_dispatch_libjs(struct http_request *req);
+
+http_action
 http_dispatch_subscribe(struct http_request *req);
 
 http_action

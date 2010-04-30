@@ -41,6 +41,8 @@ worker_main(void *ptr) {
 	memset(&settings, 0, sizeof(http_parser_settings));
 	settings.on_path = http_parser_onpath;
 	settings.on_url = http_parser_onurl;
+	settings.on_header_field = http_parser_on_header_field;
+	settings.on_header_value = http_parser_on_header_value;
 
 	while(1) {
 		pthread_mutex_t mutex; /* mutex used in pthread_cond_wait */
@@ -89,6 +91,7 @@ worker_main(void *ptr) {
 		int action = http_dispatch(&req);
 
 		/* cleanup */
+		free(req.host); req.host = NULL; req.host_len = 0;
 		free(req.path); req.path = NULL;
 		dictRelease(req.get);
 

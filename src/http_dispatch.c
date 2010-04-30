@@ -92,6 +92,8 @@ http_dispatch(struct http_request *req) {
 		return http_dispatch_subscribe(req);
 	} else if(req->path_len == 7 && 0 == strncmp(req->path, "/iframe", 7)) {
 		return http_dispatch_iframe(req);
+	} else if(req->path_len == 7 && 0 == strncmp(req->path, "/lib.js", 7)) {
+		return http_dispatch_libjs(req);
 	} else if(req->path_len == 16 && 0 == strncmp(req->path, "/crossdomain.xml", 16)) {
 		return http_dispatch_flash_crossdomain(req);
 	}
@@ -114,6 +116,44 @@ http_dispatch_flash_crossdomain(struct http_request *req) {
 	return HTTP_DISCONNECT;
 }
 
+http_action
+http_dispatch_libjs(struct http_request *req) {
+
+	dictEntry *de;
+
+	char buffer_start[] = "var comet_domain = '";
+	char buffer_domain[] = "'; var common_domain = '";
+	char buffer_js[] = "';\
+Comet = {\
+	init: function(cbLoaded) {\
+		var iframe = document.createElement('iframe');\
+		iframe.src = 'http://' + comet_domain + '/iframe?domain=' + common_domain;\
+		iframe.setAttribute('style', 'display: none');\
+		document.body.appendChild(iframe);\
+\
+		iframe.onload = function() {\
+			Comet.Client = function() { return new iframe.contentWindow.CometClient(comet_domain);};\
+			cbLoaded();\
+		};\
+	}\
+};";
+
+	http_streaming_start(req->fd, 200, "OK");
+	http_streaming_chunk(req->fd, buffer_start, sizeof(buffer_start)-1);
+	/* then current host */
+	if(req->host) {
+		http_streaming_chunk(req->fd, req->host, req->host_len);
+	}
+	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
+	/* then common domain */
+	if(req->get && (de = dictFind(req->get, "domain"))) {
+		http_streaming_chunk(req->fd, de->val, de->size);
+	}
+	http_streaming_chunk(req->fd, buffer_js, sizeof(buffer_js)-1);
+	http_streaming_end(req->fd);
+
+	return HTTP_DISCONNECT;
+}
 
 /**
  * Return generic page for iframe inclusion

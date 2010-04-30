@@ -37,6 +37,10 @@ struct http_request {
 	char *path;
 	size_t path_len;
 
+	int host_follows; /* used in header parsing */
+	char *host;
+	size_t host_len;
+
 	dict *get;
 	struct event_base *base;
 };
@@ -46,5 +50,11 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len);
 
 int
 http_parser_onpath(http_parser *parser, const char *at, size_t len);
+
+int
+http_parser_on_header_field(http_parser *parser, const char *at, size_t len);
+
+int
+http_parser_on_header_value(http_parser *parser, const char *at, size_t len);
 
 #endif /* HTTP_H */
