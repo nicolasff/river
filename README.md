@@ -50,7 +50,7 @@ The following example considers the page to be at `example.com`, and the comet s
 
 
 ### Notes
-* /meta/connect takes 3 more (optional) parameters:
+* /subscribe takes 3 more (optional) parameters:
     * `keep`: Use HTTP streaming or close connection after every push (value=`0` or `1`, defaults to `1`)
     * `seq`: Stream messages from a the sequence number up. Example: If 1000 messages have been sent, `seq=990` will push 10 messages. This parameter still observes `keep`.
     * `callback`: function name for a JSONP callback.
