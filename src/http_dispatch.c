@@ -92,7 +92,24 @@ http_dispatch(struct http_request *req) {
 		return http_dispatch_subscribe(req);
 	} else if(req->path_len == 7 && 0 == strncmp(req->path, "/iframe", 7)) {
 		return http_dispatch_iframe(req);
+	} else if(req->path_len == 16 && 0 == strncmp(req->path, "/crossdomain.xml", 16)) {
+		return http_dispatch_flash_crossdomain(req);
 	}
+
+	send_reply(req, 404);
+	return HTTP_DISCONNECT;
+}
+
+http_action
+http_dispatch_flash_crossdomain(struct http_request *req) {
+
+	const char crossdomain[] = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
+		"<cross-domain-policy>"
+		"<allow-access-from domain=\"*\" />"
+		"</cross-domain-policy>\r\n";
+
+	http_response_ct(req->fd, 200, "OK", crossdomain, sizeof(crossdomain)-1,
+			"application/xml");
 
 	return HTTP_DISCONNECT;
 }

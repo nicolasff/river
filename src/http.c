@@ -7,14 +7,19 @@
 
 void
 http_response(int fd, int code, const char *status, const char *data, size_t len) {
+	http_response_ct(fd, code, status, data, len, "text/html");
+}
+
+void
+http_response_ct(int fd, int code, const char *status, const char *data, size_t len, const char *content_type) {
 	
 	int ret;
 	/* GNU-only. TODO: replace with something more portable */
 	ret = dprintf(fd, "HTTP/1.1 %d %s\r\n"
-			"Content-Type: text/html\r\n"
+			"Content-Type: %s\r\n"
 			"Content-Length: %lu\r\n"
 			"\r\n",
-			code, status, len);
+			code, status, content_type, len);
 	if(ret) {
 		ret = write(fd, data, len);
 		close(fd);

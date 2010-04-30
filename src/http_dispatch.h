@@ -23,6 +23,9 @@ http_action
 http_dispatch(struct http_request *req);
 
 http_action
+http_dispatch_flash_crossdomain(struct http_request *req);
+
+http_action
 http_dispatch_iframe(struct http_request *req);
 
 http_action
