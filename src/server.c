@@ -67,6 +67,7 @@ worker_main(void *ptr) {
 
 		/* fail, close. */
 		if(nb_read < 0) {
+			shutdown(req.fd, SHUT_RDWR);
 			close(req.fd); /* byyyee */
 			continue;
 		}
@@ -82,7 +83,8 @@ worker_main(void *ptr) {
 				buffer, nb_read);
 
 		if(nb_read != (int)nb_parsed) {
-			close(req.fd); /* byyyee */
+			shutdown(req.fd, SHUT_RDWR);
+			close(req.fd);
 			continue;
 		}
 
@@ -93,9 +95,12 @@ worker_main(void *ptr) {
 		/* cleanup */
 		free(req.host); req.host = NULL; req.host_len = 0;
 		free(req.path); req.path = NULL;
-		dictRelease(req.get);
+		if(req.get) {
+			dictRelease(req.get);
+		}
 
 		if(0 == action) {
+			shutdown(req.fd, SHUT_RDWR);
 			close(req.fd);
 		}
 	}
@@ -129,7 +134,7 @@ void
 on_accept(int fd, short event, void *ptr) {
 
 	struct dispatcher_info *di = ptr;
-	int client_fd;
+	int client_fd, ret;
 	struct sockaddr addr;
 	socklen_t addrlen;
 	struct event_callback_data *cb_data;
@@ -141,13 +146,27 @@ on_accept(int fd, short event, void *ptr) {
 	/* accept connection */
 	addrlen = sizeof(addr);
 	client_fd = accept(fd, &addr, &addrlen);
+	if(client_fd < 1) {
+		/* printf("on_accept: fd=%d, client_fd=%d (error:%s)\n", fd, client_fd, strerror(errno)); */
+		return;
+	}
 
 	/* add read event */
 	cb_data = calloc(1, sizeof(struct event_callback_data));
 	cb_data->di = di;
 	event_set(&cb_data->ev, client_fd, EV_READ, on_client_data, cb_data);
-	event_base_set(di->base, &cb_data->ev);
-	event_add(&cb_data->ev, NULL);
+	ret = event_base_set(di->base, &cb_data->ev);
+	if(ret == 0) {
+		ret = event_add(&cb_data->ev, NULL);
+		if(ret != 0) {
+			/*printf("FAILED on fd=%d, for client_fd=%d at %s:%d (ret=%d). error=[%s]\n",
+			 fd, client_fd, __FILE__, __LINE__, ret, strerror(errno)); */
+			free(cb_data);
+		}
+	} else {
+		/* printf("FAILED at %s:%d (ret=%d)\n", __FILE__, __LINE__, ret); */
+		free(cb_data);
+	}
 }
 
 /**

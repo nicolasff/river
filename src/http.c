@@ -22,6 +22,7 @@ http_response_ct(int fd, int code, const char *status, const char *data, size_t 
 			code, status, content_type, len);
 	if(ret) {
 		ret = write(fd, data, len);
+		shutdown(fd, SHUT_RDWR);
 		close(fd);
 		(void)ret;
 	}
@@ -54,6 +55,7 @@ http_streaming_end(int fd) {
 
 	int ret = write(fd, "0\r\n\r\n", 5);
 	(void)ret;
+	shutdown(fd, SHUT_RDWR);
 	close(fd);
 }
 

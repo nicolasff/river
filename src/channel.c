@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/socket.h>
+
 #include "channel.h"
 #include "http.h"
 #include "json.h"
@@ -86,7 +88,6 @@ struct p_channel_user *
 channel_new_connection(int fd, int keep_connected, const char *jsonp) {
 
 	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
-	/* printf("calloc pcu=%p\n", (void*)pcu); */
 	pcu->fd = fd;
 	pcu->free_on_remove = 1;
 	pcu->keep_connected = keep_connected;
@@ -101,7 +102,6 @@ channel_new_connection(int fd, int keep_connected, const char *jsonp) {
 				prefix, sizeof(prefix)-1);
 	}
 
-	/* printf("return pcu=%p\n", (void*)pcu); */
 	return pcu;
 }
 
@@ -137,7 +137,6 @@ channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu) {
 		channel->user_list = NULL;
 	}
 	if(pcu->free_on_remove) {
-		/* printf("free pcu=%p\n", (void*)pcu); */
 		free(pcu->jsonp);
 		free(pcu);
 	}
@@ -184,6 +183,7 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len) {
 			total += http_streaming_chunk(pcu->fd, jsonp_end, sizeof(jsonp_end)-1);
 		}
 		if(total != expected_len) { /* failed write */
+			shutdown(pcu->fd, SHUT_RDWR);
 			close(pcu->fd);
 			channel_del_connection(channel, pcu);
 		} else if(!pcu->keep_connected) {
