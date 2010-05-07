@@ -155,7 +155,7 @@ on_accept(int fd, short event, void *ptr) {
 	client_fd = accept(fd, &addr, &addrlen);
 	if(client_fd < 1) {
 		/* failed accept, we need to stop accepting connections until we close a fd */
-		/* printf("on_accept: fd=%d, client_fd=%d (error:%s)\n", fd, client_fd, strerror(errno)); */
+		syslog(LOG_WARNING, "accept() returned %d: %m", client_fd);
 		update_event(di, 0);
 		return;
 	}
@@ -168,13 +168,12 @@ on_accept(int fd, short event, void *ptr) {
 	if(ret == 0) {
 		ret = event_add(&cb_data->ev, NULL);
 		if(ret != 0) {
-			/*printf("FAILED on fd=%d, for client_fd=%d at %s:%d (ret=%d). error=[%s]\n",
-			 fd, client_fd, __FILE__, __LINE__, ret, strerror(errno)); */
+			syslog(LOG_WARNING, "event_add() failed: %m");
 			free(cb_data);
 			update_event(di, 0);
 		}
 	} else {
-		/* printf("FAILED at %s:%d (ret=%d)\n", __FILE__, __LINE__, ret); */
+		syslog(LOG_WARNING, "event_base_set() failed: %m");
 		free(cb_data);
 		update_event(di, 0);
 	}
@@ -186,22 +185,22 @@ update_event(struct dispatcher_info *di, int flags) {
 
 	struct event *ev = &di->ev;
 	struct event_base *base = ev->ev_base;
-	if(ev->ev_flags == flags) {
+	if(ev->ev_flags == flags) { /* no change in flags */
 		return 0;
 	}
 
 	if(event_del(ev) == -1) {
-		/* printf("ret -1\n"); */
+		syslog(LOG_WARNING, "event_del() failed.");
 		return -1;
 	}
 	event_set(ev, di->fd, flags, on_accept, di);
 	event_base_set(base, ev);
 
 	if(event_add(ev, 0) == -1) {
-		/* printf("event_add: ret -1\n"); */
+		syslog(LOG_WARNING, "event_add() failed: %m");
 		return -1;
 	}
-	/* printf("ret 0\n"); */
+
 	return 0;
 }
 
@@ -239,6 +238,8 @@ server_run(short nb_workers, const char *ip, short port) {
 		wi->base = base;
 		pthread_create(&wi->thread, NULL, worker_main, wi);
 	}
+
+	syslog(LOG_INFO, "Running.");
 
 	return event_base_dispatch(base);
 }

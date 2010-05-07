@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <syslog.h>
 
 #include "server.h"
 #include "channel.h"
@@ -25,6 +26,9 @@ main(int argc, char *argv[]) {
 		fprintf(stderr, "Could not read config file.\n");
 		return EXIT_FAILURE;
 	}
+
+	/* initialize syslog */
+	openlog(cfg->log_file, LOG_CONS | LOG_PID | LOG_NDELAY, LOG_USER);
 
 	http_init(cfg);
 	channel_init();

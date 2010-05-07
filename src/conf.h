@@ -9,6 +9,8 @@ struct conf {
 
 	int threads;
 
+	char *log_file;
+
 	int client_timeout;
 };
 
