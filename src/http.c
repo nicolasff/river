@@ -148,9 +148,9 @@ http_parser_on_header_field(http_parser *parser, const char *at, size_t len) {
 
 	struct http_request *req = parser->data;
 
-	if(0 == strncmp(at, "Host", len)) { /* next value is the host */
-		req->host_follows = 1;
-	}
+	req->header_next = calloc(len+1, 1);
+	memcpy(req->header_next, at, len);
+
 	return 0;
 }
 
@@ -159,12 +159,16 @@ http_parser_on_header_value (http_parser *parser, const char *at, size_t len) {
 
 	struct http_request *req = parser->data;
 	
-	if(req->host_follows) { /* copy the "Host" header. */
-		req->host_follows = 0;
+	if(strncmp(req->header_next, "Host", 4) == 0) { /* copy the "Host" header. */
 		req->host_len = len;
 		req->host = calloc(len + 1, 1);
 		memcpy(req->host, at, len);
+	} else if(strncmp(req->header_next, "Origin", 6) == 0) { /* copy the "Origin" header. */
+		req->origin_len = len;
+		req->origin = calloc(len + 1, 1);
+		memcpy(req->origin, at, len);
 	}
+	free(req->header_next);
 	return 0;
 }
 

@@ -58,5 +58,5 @@ The following example considers the page to be at `example.com`, and the comet s
 → That’s it for the proof of concept!
 
 #### TODO
-* Add support for HTML5 WebSockets
+* Finish adding support for HTML5 WebSockets
 * Lots of cleanup code.

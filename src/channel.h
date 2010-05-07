@@ -6,12 +6,17 @@
 
 #include "http.h"
 
+typedef int (*write_function)(int fd, const char *data, size_t len);
+typedef int (*start_function)(struct http_request *req);
+
 struct p_channel_user {
 	int fd;
 	int keep_connected;
 	int free_on_remove;
 	char *jsonp;
 	int jsonp_len;
+
+	write_function wfun;
 
 	struct p_channel_user *prev;
 	struct p_channel_user *next;
@@ -52,7 +57,7 @@ struct p_channel *
 channel_find(const char *name);
 
 struct p_channel_user *
-channel_new_connection(int fd, int keep_connected, const char *jsonp);
+channel_new_connection(int fd, int keep_connected, const char *jsonp, write_function wfun);
 
 void
 channel_add_connection(struct p_channel *channel, struct p_channel_user *pcu);

@@ -89,7 +89,7 @@ worker_main(void *ptr) {
 		nb_parsed = http_parser_execute(&parser, settings,
 				buffer, nb_read);
 
-		if(nb_read != (int)nb_parsed) {
+		if((int)nb_parsed < nb_read - 1) {
 			shutdown(req.fd, SHUT_RDWR);
 			close(req.fd);
 			continue;

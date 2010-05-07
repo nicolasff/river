@@ -37,5 +37,8 @@ http_dispatch_subscribe(struct http_request *req);
 http_action
 http_dispatch_publish(struct http_request *req);
 
+http_action
+http_dispatch_websocket(struct http_request *req);
+
 #endif /* COMETD_HTTP_DISPATCH_H */
 

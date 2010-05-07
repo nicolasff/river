@@ -12,6 +12,7 @@
 
 
 #include "http_dispatch.h"
+#include "websocket.h"
 #include "channel.h"
 #include "server.h"
 #include "message.h"
@@ -96,6 +97,8 @@ http_dispatch(struct http_request *req) {
 		return http_dispatch_libjs(req);
 	} else if(req->path_len == 16 && 0 == strncmp(req->path, "/crossdomain.xml", 16)) {
 		return http_dispatch_flash_crossdomain(req);
+	} else if(req->path_len == 10 && 0 == strncmp(req->path, "/websocket", 10)) {
+		return http_dispatch_websocket(req);
 	}
 
 	send_reply(req, 404);
@@ -215,12 +218,13 @@ on_client_too_old(int fd, short event, void *arg) {
 }
 
 /**
- * Connect user to a channel. This call is blocking, waiting for new data.
- * 
- * Parameters: name, [seq], [keep]
+ * Perform a read on the channel, with two callback functions.
+ *
+ * @param start_fun is called when the client is allowed to connect.
+ * @param write_fun is called to write data to the client.
  */
-http_action
-http_dispatch_subscribe(struct http_request *req) {
+static http_action
+http_dispatch_read(struct http_request *req, start_function start_fun, write_function write_fun) {
 
 	http_action ret = HTTP_KEEP_CONNECTED;
 	struct p_channel *channel = NULL;
@@ -244,7 +248,6 @@ http_dispatch_subscribe(struct http_request *req) {
 		has_seq = 1;
 	}
 	if((de = dictFind(req->get, "keep"))) { /* optional */
-		/* printf("has keep para: [%s]\n", de->val); */
 		keep_connected = atol(de->val);
 	}
 	if((de = dictFind(req->get, "callback"))) { /* optional */
@@ -262,8 +265,8 @@ http_dispatch_subscribe(struct http_request *req) {
 	}
 
 	struct p_channel_user *pcu;
-	pcu = channel_new_connection(req->fd, keep_connected, jsonp);
-	http_streaming_start(req->fd, 200, "OK");
+	pcu = channel_new_connection(req->fd, keep_connected, jsonp, write_fun);
+	start_fun(req);
 
 	/* 3 cases:
 	 *
@@ -316,6 +319,30 @@ http_dispatch_subscribe(struct http_request *req) {
 	}
 
 	return ret;
+}
+
+http_action
+http_dispatch_websocket(struct http_request *req) {
+	return http_dispatch_read(req, ws_start, ws_write);
+}
+
+
+
+static int
+start_fun_http(struct http_request *req) {
+	http_streaming_start(req->fd, 200, "OK");
+	return 0;
+}
+
+/**
+ * Connect user to a channel. This call is blocking, waiting for new data.
+ *
+ * Parameters: name, [seq], [keep]
+ */
+http_action
+http_dispatch_subscribe(struct http_request *req) {
+
+	return http_dispatch_read(req, start_fun_http, http_streaming_chunk);
 }
 
 /**

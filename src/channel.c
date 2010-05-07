@@ -85,9 +85,10 @@ channel_free(struct p_channel * p) {
 }
 
 struct p_channel_user *
-channel_new_connection(int fd, int keep_connected, const char *jsonp) {
+channel_new_connection(int fd, int keep_connected, const char *jsonp, write_function wfun) {
 
 	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
+	pcu->wfun = wfun;
 	pcu->fd = fd;
 	pcu->free_on_remove = 1;
 	pcu->keep_connected = keep_connected;
@@ -176,11 +177,11 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len) {
 		char jsonp_end[] = ");\r\n";
 		if(pcu->jsonp) {
 			expected_len += pcu->jsonp_len + sizeof(jsonp_end)-1;
-			total += http_streaming_chunk(pcu->fd, pcu->jsonp, pcu->jsonp_len);
+			total += pcu->wfun(pcu->fd, pcu->jsonp, pcu->jsonp_len);
 		}
-		total += (ret = http_streaming_chunk(pcu->fd, msg->data, msg->data_len));
+		total += (ret = pcu->wfun(pcu->fd, msg->data, msg->data_len));
 		if(pcu->jsonp) {
-			total += http_streaming_chunk(pcu->fd, jsonp_end, sizeof(jsonp_end)-1);
+			total += pcu->wfun(pcu->fd, jsonp_end, sizeof(jsonp_end)-1);
 		}
 		if(total != expected_len) { /* failed write */
 			shutdown(pcu->fd, SHUT_RDWR);
@@ -225,7 +226,7 @@ channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsi
 
 		msg = &channel->log_buffer[pos];
 
-		ret = http_streaming_chunk(pcu->fd, msg->data, msg->data_len);
+		ret = pcu->wfun(pcu->fd, msg->data, msg->data_len);
 		if(ret != (int)msg->data_len) { /* failed write */
 			success = 0;
 			break;

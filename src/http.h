@@ -37,9 +37,13 @@ struct http_request {
 	char *path;
 	size_t path_len;
 
-	int host_follows; /* used in header parsing */
+	char *header_next; /* used in header parsing */
+
 	char *host;
 	size_t host_len;
+
+	char *origin;
+	size_t origin_len;
 
 	dict *get;
 	struct event_base *base;
