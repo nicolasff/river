@@ -24,6 +24,9 @@
 #include "http.h"
 
 
+static void
+on_accept(int fd, short event, void *ptr);
+
 void *
 worker_main(void *ptr) {
 
@@ -130,7 +133,7 @@ on_client_data(int fd, short event, void *ptr) {
 /**
  * Called when we can accept(2) a connection from a client.
  */
-void
+static void
 on_accept(int fd, short event, void *ptr) {
 
 	struct dispatcher_info *di = ptr;
@@ -147,7 +150,9 @@ on_accept(int fd, short event, void *ptr) {
 	addrlen = sizeof(addr);
 	client_fd = accept(fd, &addr, &addrlen);
 	if(client_fd < 1) {
+		/* failed accept, we need to stop accepting connections until we close a fd */
 		/* printf("on_accept: fd=%d, client_fd=%d (error:%s)\n", fd, client_fd, strerror(errno)); */
+		update_event(di, 0);
 		return;
 	}
 
@@ -162,11 +167,38 @@ on_accept(int fd, short event, void *ptr) {
 			/*printf("FAILED on fd=%d, for client_fd=%d at %s:%d (ret=%d). error=[%s]\n",
 			 fd, client_fd, __FILE__, __LINE__, ret, strerror(errno)); */
 			free(cb_data);
+			update_event(di, 0);
 		}
 	} else {
 		/* printf("FAILED at %s:%d (ret=%d)\n", __FILE__, __LINE__, ret); */
 		free(cb_data);
+		update_event(di, 0);
 	}
+	update_event(di, EV_READ | EV_PERSIST);
+}
+
+int
+update_event(struct dispatcher_info *di, int flags) {
+
+	struct event *ev = &di->ev;
+	struct event_base *base = ev->ev_base;
+	if(ev->ev_flags == flags) {
+		return 0;
+	}
+
+	if(event_del(ev) == -1) {
+		/* printf("ret -1\n"); */
+		return -1;
+	}
+	event_set(ev, di->fd, flags, on_accept, di);
+	event_base_set(base, ev);
+
+	if(event_add(ev, 0) == -1) {
+		/* printf("event_add: ret -1\n"); */
+		return -1;
+	}
+	/* printf("ret 0\n"); */
+	return 0;
 }
 
 /**
@@ -175,9 +207,8 @@ on_accept(int fd, short event, void *ptr) {
 int
 server_run(short nb_workers, const char *ip, short port) {
 
-	int fd, i;
+	int i;
 	struct event_base *base;
-	struct event ev;
 	struct queue_t *q;
 	struct dispatcher_info di;
 	
@@ -185,11 +216,11 @@ server_run(short nb_workers, const char *ip, short port) {
 	q = queue_new();
 
 	/* setup socket + libevent */
-	fd = socket_setup(ip, port);
+	di.fd = socket_setup(ip, port);
 	base = event_init();
-	event_set(&ev, fd, EV_READ | EV_PERSIST, on_accept, &di);
-	event_base_set(base, &ev);
-	event_add(&ev, NULL); 
+	event_set(&di.ev, di.fd, EV_READ | EV_PERSIST, on_accept, &di);
+	event_base_set(base, &di.ev);
+	event_add(&di.ev, NULL);
 
 	/* fill in dispatcher info */
 	di.base = base;
