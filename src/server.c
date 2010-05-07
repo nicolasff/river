@@ -27,6 +27,10 @@
 static void
 on_accept(int fd, short event, void *ptr);
 
+static int
+update_event(struct dispatcher_info *di, int flags);
+
+
 void *
 worker_main(void *ptr) {
 
@@ -177,7 +181,7 @@ on_accept(int fd, short event, void *ptr) {
 	update_event(di, EV_READ | EV_PERSIST);
 }
 
-int
+static int
 update_event(struct dispatcher_info *di, int flags) {
 
 	struct event *ev = &di->ev;
