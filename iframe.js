@@ -73,7 +73,7 @@ function CometClient(host){
 
 	this.disconnect = function() {
 		window.clearTimeout(this.reconnectionTimeout); // cancel reconnect.
-		// console.log("CLOSE");
+
 		try {
 			this.xhr.onreadystatechange = function(){};
 			this.xhr.abort();
@@ -89,7 +89,7 @@ function CometClient(host){
 	}
 
 	this.connect = function(channel, onMsg) {
-		// console.log("CONNECT");
+
 		var comet = this;
 		comet.xhr = new XMLHttpRequest;
 		comet.pos = 0;
@@ -98,10 +98,9 @@ function CometClient(host){
 		}
 
 		var url = "http://"+this.host+"/subscribe?name="+channel+"&keep="+this.canStream+"&seq="+this.seq;
-		// console.log(url);
 		comet.xhr.open("get", url, true);
 		comet.xhr.onreadystatechange = function() {
-			// console.log("entered onreadystatechange ("+comet.xhr.readyState+")");
+
 			if(comet.xhr.readyState != 4 && comet.canStream == 0) {
 				return; // wait for state 4.
 			}
@@ -122,7 +121,6 @@ function CometClient(host){
 					return;
 				}
 
-				// console.log("got a message:", data);
 				do {
 					// this might only be the first part of our current packet.
 					var msg = cutMessage(data.substr(comet.pos));
@@ -153,8 +151,7 @@ function CometClient(host){
 								}
 								break;
 						}
-					} catch(e) { // TODO: how do we handle errors?
-						// console.log("fail line 66:", e);
+					} catch(e) { 
 						comet.xhr.abort(); // avoid duplicates upon reconnection
 						setTimeout(function() {
 							comet.connect(channel, onMsg);
@@ -163,7 +160,6 @@ function CometClient(host){
 					
 
 					if(comet.pos < data.length) {
-						// console.log("comet.pos=", comet.pos, ", msg.length=", msg.length, ", data.length=", data.length);
 						break;
 					}
 					// there might be more in this event: consume the whole string.
@@ -171,8 +167,7 @@ function CometClient(host){
 
 			}
 			if(comet.xhr.readyState == 4) { // reconnect
-				// console.log("END, readyState=4, length=", data.length);
-				// TODO: if IE, reconnect directly? not sure yet.
+				// if no streaming capability, reconnect directly.
 				if(this.canStream) {
 					window.setTimeout(function() {
 						comet.connect(channel, onMsg);

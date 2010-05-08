@@ -13,6 +13,7 @@
 
 #include "http_dispatch.h"
 #include "websocket.h"
+#include "files.h"
 #include "channel.h"
 #include "server.h"
 #include "message.h"
@@ -20,12 +21,10 @@
 #include "dict.h"
 #include "conf.h"
 
-#define RELOAD_IFRAME_EVERY_TIME 0
-
 static struct conf *__cfg;
 
-static char *iframe_buffer = NULL;
-static size_t iframe_buffer_len = -1;
+extern char *iframe_buffer;
+extern size_t iframe_buffer_len;
 
 void
 http_init(struct conf *cfg) {
@@ -91,110 +90,14 @@ http_dispatch(struct http_request *req) {
 		return http_dispatch_publish(req);
 	} else if(req->path_len == 10 && 0 == strncmp(req->path, "/subscribe", 10)) {
 		return http_dispatch_subscribe(req);
-	} else if(req->path_len == 7 && 0 == strncmp(req->path, "/iframe", 7)) {
-		return http_dispatch_iframe(req);
-	} else if(req->path_len == 7 && 0 == strncmp(req->path, "/lib.js", 7)) {
-		return http_dispatch_libjs(req);
-	} else if(req->path_len == 16 && 0 == strncmp(req->path, "/crossdomain.xml", 16)) {
-		return http_dispatch_flash_crossdomain(req);
 	} else if(req->path_len == 10 && 0 == strncmp(req->path, "/websocket", 10)) {
 		return http_dispatch_websocket(req);
+	} else if(file_send(req) == 0) {
+		return HTTP_DISCONNECT;
 	}
+
 
 	send_reply(req, 404);
-	return HTTP_DISCONNECT;
-}
-
-http_action
-http_dispatch_flash_crossdomain(struct http_request *req) {
-
-	const char crossdomain[] = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
-		"<cross-domain-policy>"
-		"<allow-access-from domain=\"*\" />"
-		"</cross-domain-policy>\r\n";
-
-	http_response_ct(req->fd, 200, "OK", crossdomain, sizeof(crossdomain)-1,
-			"application/xml");
-
-	return HTTP_DISCONNECT;
-}
-
-http_action
-http_dispatch_libjs(struct http_request *req) {
-
-	dictEntry *de;
-
-	char buffer_start[] = "var comet_domain = '";
-	char buffer_domain[] = "'; var common_domain = '";
-	char buffer_js[] = "';\
-Comet = {\
-	init: function(cbLoaded) {\
-		var iframe = document.createElement('iframe');\
-		iframe.src = 'http://' + comet_domain + '/iframe?domain=' + common_domain;\
-		iframe.setAttribute('style', 'display: none');\
-		document.body.appendChild(iframe);\
-\
-		iframe.onload = function() {\
-			Comet.Client = function() { return new iframe.contentWindow.CometClient(comet_domain);};\
-			cbLoaded();\
-		};\
-	}\
-};";
-
-	http_streaming_start(req->fd, 200, "OK");
-	http_streaming_chunk(req->fd, buffer_start, sizeof(buffer_start)-1);
-	/* then current host */
-	if(req->host) {
-		http_streaming_chunk(req->fd, req->host, req->host_len);
-	}
-	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
-	/* then common domain */
-	if(req->get && (de = dictFind(req->get, "domain"))) {
-		http_streaming_chunk(req->fd, de->val, de->size);
-	}
-	http_streaming_chunk(req->fd, buffer_js, sizeof(buffer_js)-1);
-	http_streaming_end(req->fd);
-
-	return HTTP_DISCONNECT;
-}
-
-/**
- * Return generic page for iframe inclusion
- */
-http_action
-http_dispatch_iframe(struct http_request *req) {
-
-	dictEntry *de;
-
-	char buffer_start[] = "<html><body><script type=\"text/javascript\">\ndocument.domain=\"";
-	char buffer_domain[] = "\";\n";
-	char buffer_end[] = "</script></body></html>\n";
-
-	http_streaming_start(req->fd, 200, "OK");
-	http_streaming_chunk(req->fd, buffer_start, sizeof(buffer_start)-1);
-	if(req->get && (de = dictFind(req->get, "domain"))) {
-		http_streaming_chunk(req->fd, de->val, de->size);
-	}
-	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
-
-	/* iframe.js */
-#if RELOAD_IFRAME_EVERY_TIME
-	FILE *f = fopen("iframe.js", "r");
-	while(f && !feof(f)) {
-		char buffer[1000];
-		fgets(buffer, sizeof(buffer)-1, f);
-		http_streaming_chunk(req->fd, buffer, strlen(buffer));
-	}
-	if(f) {
-		fclose(f);
-	}
-#else
-	http_streaming_chunk(req->fd, iframe_buffer, iframe_buffer_len);
-#endif
-
-	http_streaming_chunk(req->fd, buffer_end, sizeof(buffer_end)-1);
-	http_streaming_end(req->fd);
-	
 	return HTTP_DISCONNECT;
 }
 
