@@ -46,5 +46,7 @@ ws_write(int fd, const char *buf, size_t len) {
 	if(write(fd, "\xff", 1) != 1) {
 		return -1;
 	}
-	return len; /* we're expected to write only `len' bytes. the rest is protocol-specific. */
+	/* we're expected to write only `len' bytes. the rest is protocol-specific. */
+	return len;
 }
+

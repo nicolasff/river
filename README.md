@@ -37,13 +37,13 @@ The following example considers the page to be at `example.com`, and the comet s
 <pre>
 	document.domain = "example.com";
 
-	function notice(msg) {
+	function onMsg(msg) {
 		alert("received message: ", msg);
 	}
 
 	Comet.init(function() {
 		var c = new Comet.Client();
-		c.connect("public-channel", notice);
+		c.connect("public-channel", onMsg); // call onMsg upon reception of a message.
 	});
 </pre>
 3 - The `notice` function will now receive all messages published on `public-channel`.
@@ -58,5 +58,7 @@ The following example considers the page to be at `example.com`, and the comet s
 → That’s it for the proof of concept!
 
 #### TODO
-* Finish adding support for HTML5 WebSockets
+* Finish adding support for HTML5 WebSockets.
+* Refactor http_dispatch.c
+* Add automatic dead channel deletion.
 * Lots of cleanup code.
