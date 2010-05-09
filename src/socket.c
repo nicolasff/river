@@ -29,35 +29,35 @@ socket_setup(const char *ip, short port) {
 	/* create socket */
 	fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (-1 == fd) {
-		syslog(LOG_ERR, "Socket error: %s\n", strerror(errno));
+		syslog(LOG_ERR, "Socket error: %m\n");
 		return -1;
 	}
 
 	/* reuse address if we've bound to it before. */
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse,
 				sizeof(reuse)) < 0) {
-		syslog(LOG_ERR, "setsockopt error: %s\n", strerror(errno));
+		syslog(LOG_ERR, "setsockopt error: %m\n");
 		return -1;
 	}
 
 	/* set socket as non-blocking. */
 	ret = fcntl(fd, F_SETFD, O_NONBLOCK);
 	if (0 != ret) {
-		syslog(LOG_ERR, "fcntl error: %s\n", strerror(errno));
+		syslog(LOG_ERR, "fcntl error: %m\n");
 		return -1;
 	}
 
 	/* bind */
 	ret = bind(fd, (struct sockaddr*)&addr, sizeof(addr));
 	if (0 != ret) {
-		syslog(LOG_ERR, "Bind error: %s\n", strerror(errno));
+		syslog(LOG_ERR, "Bind error: %m\n");
 		return -1;
 	}
 
 	/* listen */
 	ret = listen(fd, SOMAXCONN);
 	if (0 != ret) {
-		syslog(LOG_DEBUG, "Listen error: %s\n", strerror(errno));
+		syslog(LOG_DEBUG, "Listen error: %m\n");
 		return -1;
 	}
 
