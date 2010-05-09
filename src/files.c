@@ -57,7 +57,7 @@ Comet = {\
 	}\
 };";
 
-	http_streaming_start(req->fd, 200, "OK");
+	http_streaming_start_ct(req->fd, 200, "OK", "text/javascript");
 	http_streaming_chunk(req->fd, buffer_start, sizeof(buffer_start)-1);
 	/* then current host */
 	if(req->host) {

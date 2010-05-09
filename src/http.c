@@ -31,12 +31,16 @@ http_response_ct(int fd, int code, const char *status, const char *data, size_t 
 
 void
 http_streaming_start(int fd, int code, const char *status) {
+	http_streaming_start_ct(fd, code, status, "text/html");
+}
+void
+http_streaming_start_ct(int fd, int code, const char *status, const char *content_type) {
 
 	dprintf(fd, "HTTP/1.1 %d %s\r\n"
-			"Content-Type: text/html\r\n"
+			"Content-Type: %s\r\n"
 			"Transfer-Encoding: chunked\r\n"
 			"\r\n"
-			, code, status);
+			, code, status, content_type);
 }
 
 int

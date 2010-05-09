@@ -4,7 +4,7 @@
 #include "http-parser/http_parser.h"
 #include "dict.h"
 
-typedef enum {HTTP_DISCONNECT, HTTP_KEEP_CONNECTED} http_action;
+typedef enum {HTTP_DISCONNECT, HTTP_KEEP_CONNECTED, HTTP_MONITOR} http_action;
 
 struct event_base;
 
@@ -19,6 +19,8 @@ http_response_ct(int fd, int code, const char *status, const char *data, size_t 
 /* Start streaming with chunked encoding */
 void
 http_streaming_start(int fd, int code, const char *status);
+void
+http_streaming_start_ct(int fd, int code, const char *status, const char *content_type);
 
 /* Send data chunk */
 int
@@ -44,6 +46,8 @@ struct http_request {
 
 	char *origin;
 	size_t origin_len;
+
+	struct p_channel *channel;
 
 	dict *get;
 	struct event_base *base;

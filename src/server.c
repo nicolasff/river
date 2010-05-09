@@ -22,6 +22,7 @@
 #include "http-parser/http_parser.h"
 #include "http_dispatch.h"
 #include "http.h"
+#include "websocket.h"
 
 
 static void
@@ -97,18 +98,27 @@ worker_main(void *ptr) {
 
 		/* dispatch the client depending on the URL path */
 		req.base = wi->base;
-		int action = http_dispatch(&req);
+		http_action action = http_dispatch(&req);
+
+		switch(action) {
+			case HTTP_DISCONNECT:
+				shutdown(req.fd, SHUT_RDWR);
+				close(req.fd);
+				break;
+
+			case HTTP_MONITOR:
+				/* TODO: use proper channel name. */
+				websocket_monitor(wi->base, req.fd, req.channel);
+				break;
+
+			case HTTP_KEEP_CONNECTED: break;
+		}
 
 		/* cleanup */
 		free(req.host); req.host = NULL; req.host_len = 0;
 		free(req.path); req.path = NULL;
 		if(req.get) {
 			dictRelease(req.get);
-		}
-
-		if(0 == action) {
-			shutdown(req.fd, SHUT_RDWR);
-			close(req.fd);
 		}
 	}
 

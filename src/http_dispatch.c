@@ -130,7 +130,6 @@ static http_action
 http_dispatch_read(struct http_request *req, start_function start_fun, write_function write_fun) {
 
 	http_action ret = HTTP_KEEP_CONNECTED;
-	struct p_channel *channel = NULL;
 
 	int keep_connected = 1, has_seq = 0;
 	unsigned long long seq = 0;
@@ -163,8 +162,8 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	}
 
 	/* find channel */
-	if(!(channel = channel_find(name))) {
-		channel = channel_new(name);
+	if(!(req->channel = channel_find(name))) {
+		req->channel = channel_new(name);
 	}
 
 	struct p_channel_user *pcu;
@@ -178,15 +177,15 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	 * 3 - connect and stay connected
 	 **/
 
-	CHANNEL_LOCK(channel);
+	CHANNEL_LOCK(req->channel);
 	/* chan is locked, check if we need to catch-up */
-	if(has_seq && seq < channel->seq) {
-		ret = channel_catchup_user(channel, pcu, seq);
+	if(has_seq && seq < req->channel->seq) {
+		ret = channel_catchup_user(req->channel, pcu, seq);
 		/* case 1 */
 		if(ret == HTTP_DISCONNECT) {
 			free(pcu->jsonp);
 			free(pcu);
-			CHANNEL_UNLOCK(channel);
+			CHANNEL_UNLOCK(req->channel);
 			return HTTP_DISCONNECT;
 		} else {
 			/* case 2*/
@@ -196,18 +195,18 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	}
 
 	/* stay connected: add pcu to channel. */
-	channel_add_connection(channel, pcu);
+	channel_add_connection(req->channel, pcu);
 
 	/* add timeout to avoid keeping the user for too long. */
 	if(__cfg->client_timeout > 0) {
 		struct user_timeout *ut;
 
 		pcu->free_on_remove = 0;
-		CHANNEL_UNLOCK(channel);
+		CHANNEL_UNLOCK(req->channel);
 
 		ut = calloc(1, sizeof(struct user_timeout));
 		ut->pcu = pcu;
-		ut->channel = channel;
+		ut->channel = req->channel;
 
 		/* timeout value. */
 		ut->tv.tv_sec = __cfg->client_timeout;
@@ -218,7 +217,7 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 		event_base_set(req->base, &ut->ev);
 		timeout_add(&ut->ev, &ut->tv);
 	} else {
-		CHANNEL_UNLOCK(channel);
+		CHANNEL_UNLOCK(req->channel);
 	}
 
 	return ret;
@@ -226,7 +225,10 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 
 http_action
 http_dispatch_websocket(struct http_request *req) {
-	return http_dispatch_read(req, ws_start, ws_write);
+	if(HTTP_KEEP_CONNECTED == http_dispatch_read(req, ws_start, ws_write)) {
+		return HTTP_MONITOR;
+	}
+	return HTTP_DISCONNECT;
 }
 
 
