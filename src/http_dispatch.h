@@ -23,13 +23,11 @@ http_action
 http_dispatch(struct http_request *req);
 
 http_action
-http_dispatch_subscribe(struct http_request *req);
+http_dispatch_read(struct http_request *req, start_function start_fun,
+		write_function write_fun);
 
 http_action
 http_dispatch_publish(struct http_request *req);
-
-http_action
-http_dispatch_websocket(struct http_request *req);
 
 #endif /* COMETD_HTTP_DISPATCH_H */
 

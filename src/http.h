@@ -4,9 +4,14 @@
 #include "http-parser/http_parser.h"
 #include "dict.h"
 
-typedef enum {HTTP_DISCONNECT, HTTP_KEEP_CONNECTED, HTTP_MONITOR} http_action;
-
 struct event_base;
+struct http_request;
+
+typedef enum {HTTP_DISCONNECT, HTTP_KEEP_CONNECTED, HTTP_WEBSOCKET_MONITOR} http_action;
+
+typedef int (*write_function)(int fd, const char *data, size_t len);
+typedef int (*start_function)(struct http_request *req);
+
 
 /* Send an HTTP response */
 void

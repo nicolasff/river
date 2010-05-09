@@ -40,13 +40,13 @@ ws_start(struct http_request *req) {
 int
 ws_write(int fd, const char *buf, size_t len) {
 
-	if(write(fd, "\x00", 1) != 1) {
+	if(write(fd, "\x00", 1) != 1) { /* frame starts with \x00 */
 		return -1;
 	}
 	if(write(fd, buf, len) != (int)len) {
 		return -1;
 	}
-	if(write(fd, "\xff", 1) != 1) {
+	if(write(fd, "\xff", 1) != 1) { /* frame ends with \xff */
 		return -1;
 	}
 	/* we're expected to write only `len' bytes. the rest is protocol-specific. */
@@ -66,10 +66,12 @@ ws_client_msg(int fd, short event, void *ptr) {
 		return;
 	}
 
+	/* read message */
 	ret = read(fd, buffer, sizeof(buffer));
-	if(*buffer == 0 && ret >= 2) {
+	if(*buffer == 0 && ret >= 2) { /* frame starts with \x00 */
 		char *last;
-		if((last = strchr(buffer + 1, 0xff))) {
+		if((last = strchr(buffer + 1, 0xff))) { /* frame ends with \xff */
+			/* publish to chan. */
 			channel_write(chan, buffer + 1, last - buffer - 1);
 		}
 	}
@@ -84,10 +86,8 @@ websocket_monitor(struct event_base *base, int fd, struct p_channel *chan) {
 
 	struct event *ev = calloc(1, sizeof(struct event));
 
-	event_set(ev, fd, EV_READ, ws_client_msg, (void*)chan);
+	event_set(ev, fd, EV_READ | EV_PERSIST, ws_client_msg, chan);
 	event_base_set(base, ev);
 	event_add(ev, NULL);
-
-	printf("now monitoring fd=%d\n", fd);
 }
 

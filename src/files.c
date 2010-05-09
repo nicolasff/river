@@ -90,7 +90,6 @@ file_send_flash_crossdomain(struct http_request *req) {
 int
 file_send(struct http_request *req) {
 
-
 	if(req->path_len == 7 && strncmp("/iframe", req->path, req->path_len) == 0) {
 		file_send_iframe(req);
 	} else if(req->path_len == 7 && strncmp("/lib.js", req->path, req->path_len) == 0) {

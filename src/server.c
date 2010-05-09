@@ -106,8 +106,7 @@ worker_main(void *ptr) {
 				close(req.fd);
 				break;
 
-			case HTTP_MONITOR:
-				/* TODO: use proper channel name. */
+			case HTTP_WEBSOCKET_MONITOR:
 				websocket_monitor(wi->base, req.fd, req.channel);
 				break;
 

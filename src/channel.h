@@ -6,9 +6,6 @@
 
 #include "http.h"
 
-typedef int (*write_function)(int fd, const char *data, size_t len);
-typedef int (*start_function)(struct http_request *req);
-
 struct p_channel_user {
 	int fd;
 	int keep_connected;

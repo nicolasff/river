@@ -80,6 +80,12 @@ send_reply(struct http_request *req, int error) {
 	}
 }
 
+static int
+start_fun_http(struct http_request *req) {
+	http_streaming_start(req->fd, 200, "OK");
+	return 0;
+}
+
 /**
  * Dispatch based on the path
  */
@@ -89,9 +95,12 @@ http_dispatch(struct http_request *req) {
 	if(req->path_len == 8 && 0 == strncmp(req->path, "/publish", 8)) {
 		return http_dispatch_publish(req);
 	} else if(req->path_len == 10 && 0 == strncmp(req->path, "/subscribe", 10)) {
-		return http_dispatch_subscribe(req);
+		return http_dispatch_read(req, start_fun_http, http_streaming_chunk);
 	} else if(req->path_len == 10 && 0 == strncmp(req->path, "/websocket", 10)) {
-		return http_dispatch_websocket(req);
+		if(HTTP_KEEP_CONNECTED == http_dispatch_read(req, ws_start, ws_write)) {
+			return HTTP_WEBSOCKET_MONITOR;
+		}
+		return HTTP_DISCONNECT;
 	} else if(file_send(req) == 0) {
 		return HTTP_DISCONNECT;
 	}
@@ -126,7 +135,7 @@ on_client_too_old(int fd, short event, void *arg) {
  * @param start_fun is called when the client is allowed to connect.
  * @param write_fun is called to write data to the client.
  */
-static http_action
+http_action
 http_dispatch_read(struct http_request *req, start_function start_fun, write_function write_fun) {
 
 	http_action ret = HTTP_KEEP_CONNECTED;
@@ -221,33 +230,6 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	}
 
 	return ret;
-}
-
-http_action
-http_dispatch_websocket(struct http_request *req) {
-	if(HTTP_KEEP_CONNECTED == http_dispatch_read(req, ws_start, ws_write)) {
-		return HTTP_MONITOR;
-	}
-	return HTTP_DISCONNECT;
-}
-
-
-
-static int
-start_fun_http(struct http_request *req) {
-	http_streaming_start(req->fd, 200, "OK");
-	return 0;
-}
-
-/**
- * Connect user to a channel. This call is blocking, waiting for new data.
- *
- * Parameters: name, [seq], [keep]
- */
-http_action
-http_dispatch_subscribe(struct http_request *req) {
-
-	return http_dispatch_read(req, start_fun_http, http_streaming_chunk);
 }
 
 /**
