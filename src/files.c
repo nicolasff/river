@@ -1,9 +1,12 @@
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdlib.h>
+
 
 #include "files.h"
-
-char *iframe_buffer = NULL;
-size_t iframe_buffer_len = -1;
 
 /**
  * Return generic page for iframe inclusion
@@ -12,6 +15,38 @@ static void
 file_send_iframe(struct http_request *req) {
 
 	dictEntry *de;
+
+	static char *iframe_buffer = NULL;
+	static size_t iframe_buffer_len = -1;
+
+	/* read iframe file */
+	struct stat st;
+	int ret, fp;
+	size_t remain;
+	const char filename[] = "iframe.js";
+
+	if(iframe_buffer == NULL) {
+		ret = stat("iframe.js", &st);
+		if(ret != 0) {
+			return;
+		}
+		iframe_buffer_len = st.st_size;
+		if(!(iframe_buffer = calloc(iframe_buffer_len, 1))) {
+			iframe_buffer_len = -1;
+			return;
+		}
+		remain = iframe_buffer_len;
+		fp = open(filename, O_RDONLY);
+		while(remain) {
+			int count = read(fp, iframe_buffer + iframe_buffer_len - remain, remain);
+			if(count <= 0) {
+				free(iframe_buffer);
+				iframe_buffer_len = -1;
+				return;
+			}
+			remain -= count;
+		}
+	}
 
 	char buffer_start[] = "<html><body><script type=\"text/javascript\">\ndocument.domain=\"";
 	char buffer_domain[] = "\";\n";

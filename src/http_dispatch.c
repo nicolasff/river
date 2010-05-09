@@ -6,7 +6,6 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <event.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/types.h>
 
@@ -23,39 +22,11 @@
 
 static struct conf *__cfg;
 
-extern char *iframe_buffer;
-extern size_t iframe_buffer_len;
-
 void
 http_init(struct conf *cfg) {
 
-	struct stat st;
-	int ret, fp;
-	size_t remain;
-	const char filename[] = "iframe.js";
 	/* eww. */
 	__cfg = cfg;
-
-	ret = stat(filename, &st);
-	if(ret != 0) {
-		return;
-	}
-	iframe_buffer_len = st.st_size;
-	if(!(iframe_buffer = calloc(iframe_buffer_len, 1))) {
-		iframe_buffer_len = -1;
-		return;
-	}
-	remain = iframe_buffer_len;
-	fp = open(filename, O_RDONLY);
-	while(remain) {
-		int count = read(fp, iframe_buffer + iframe_buffer_len - remain, remain);
-		if(count <= 0) {
-			free(iframe_buffer);
-			iframe_buffer_len = -1;
-			return;
-		}
-		remain -= count;
-	}
 }
 
 static void
@@ -101,10 +72,10 @@ http_dispatch(struct http_request *req) {
 			return HTTP_WEBSOCKET_MONITOR;
 		}
 		return HTTP_DISCONNECT;
-	} else if(file_send(req) == 0) {
+
+	} else if(file_send(req) == 0) { /* check if we're sending a file. */
 		return HTTP_DISCONNECT;
 	}
-
 
 	send_reply(req, 404);
 	return HTTP_DISCONNECT;
