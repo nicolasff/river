@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <event.h>
 #include <string.h>
+#include <fcntl.h>
+#include <syslog.h>
 
 #include "websocket.h"
 #include "channel.h"
@@ -85,6 +87,11 @@ void
 websocket_monitor(struct event_base *base, int fd, struct p_channel *chan) {
 
 	struct event *ev = calloc(1, sizeof(struct event));
+
+	/* set socket as non-blocking. */
+	if (0 != fcntl(fd, F_SETFD, O_NONBLOCK)) {
+		syslog(LOG_WARNING, "fcntl error: %m\n");
+	}
 
 	event_set(ev, fd, EV_READ | EV_PERSIST, ws_client_msg, chan);
 	event_base_set(base, ev);
