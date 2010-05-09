@@ -50,28 +50,53 @@ struct writer_thread {
 };
 
 /* readers */
+void
+process_message(struct reader_thread *rt, size_t sz) {
 
+	rt->byte_count += sz;
+	if(rt->request_count % 10000 == 0) {
+		printf("%8d messages left (got %9d bytes so far).\n",
+			rt->request_count, rt->byte_count);
+	}
+
+	/* decrement read count, and stop receiving when we reach zero. */
+	rt->request_count--;
+	if(rt->request_count == 0) {
+		event_base_loopexit(rt->base, NULL);
+	}
+}
 /**
- * Called when a message is sent on the channel pipe.
+ * Called when a message is sent on the websocket channel pipe.
  */
 void
-on_message_chunk(struct evhttp_request *req, void *ptr) {
+on_websocket_message_chunk(int fd, short event, void *ptr) {
+	int ret;
+	char buffer[1024];
+
+	if(event != EV_READ) {
+		return;
+	}
+
+	ret = read(fd, buffer, sizeof(buffer));
+	if(ret > 1 && *buffer == 0) {
+		char *last = memchr(buffer + 1, 0xff, sizeof(buffer)-2);
+		if(last) {
+			process_message(ptr, last - buffer - 1);
+		}
+	}
+}
+
+/**
+ * Called when a message is sent on the HTTP channel pipe.
+ */
+void
+on_http_message_chunk(struct evhttp_request *req, void *ptr) {
 
 	struct reader_thread *rt = ptr;
 
 	if(req->response_code == HTTP_OK) {
 		size_t sz = EVBUFFER_LENGTH(req->input_buffer);
-		rt->byte_count += sz;
-		if(rt->request_count % 10000 == 0) {
-	      		printf("%8d messages left (got %9d bytes so far).\n",
-				rt->request_count, rt->byte_count);
-		}
-
-		/* decrement read count, and stop receiving when we reach zero. */
-		rt->request_count--;
-		if(rt->request_count == 0) {
-			event_base_loopexit(rt->base, NULL);
-		}
+		process_message(rt, sz);
 	} else {
 		fprintf(stderr, "CHUNK FAIL (ret=%d)\n", req->response_code);
 	}
@@ -111,7 +136,7 @@ comet_run_readers(void *ptr) {
 			struct evhttp_request *evreq = evhttp_request_new(on_end_of_subscribe, rt);
 
 			evhttp_connection_set_base(evcon, rt->base);
-			evhttp_request_set_chunked_cb(evreq, on_message_chunk);
+			evhttp_request_set_chunked_cb(evreq, on_http_message_chunk);
 			evhttp_make_request(evcon, evreq, EVHTTP_REQ_GET, url);
 			/* printf("[SUBSCRIBE: http://127.0.0.1:1234%s]\n", url); */
 		}

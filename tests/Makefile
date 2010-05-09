@@ -5,14 +5,8 @@ LDFLAGS=-levent -lpthread
 
 all: $(OUT) Makefile
 
-bench: bench.o Makefile
-	$(CC) $(LDFLAGS) -o bench bench.o
-
-catchup: catchup.o Makefile
-	$(CC) $(LDFLAGS) -o catchup catchup.o
-
-%.o: %.c %.h Makefile
-	$(CC) -c $(CFLAGS) -o $@ $<
+%: %.o Makefile
+	$(CC) $(LDFLAGS) -o $@ $<
 
 %.o: %.c Makefile
 	$(CC) -c $(CFLAGS) -o $@ $<
