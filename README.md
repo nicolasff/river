@@ -58,7 +58,5 @@ The following example considers the page to be at `example.com`, and the comet s
 → That’s it for the proof of concept!
 
 #### TODO
-* Finish adding support for HTML5 WebSockets.
-* Refactor http_dispatch.c
 * Add automatic dead channel deletion.
-* Lots of cleanup code.
+* Cleanup code.

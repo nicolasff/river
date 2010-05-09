@@ -64,6 +64,29 @@ http_streaming_end(int fd) {
 	close(fd);
 }
 
+void
+send_empty_reply(struct http_request *req, int error) {
+
+	switch(error) {
+		case 400:
+			http_response(req->fd, 400, "Bad Request", "", 0);
+			break;
+
+		case 200:
+			http_response(req->fd, 200, "OK", "", 0);
+			break;
+
+		case 404:
+			http_response(req->fd, 404, "Not found", "", 0);
+			break;
+
+		case 403:
+			http_response(req->fd, 403, "Forbidden", "", 0);
+			break;
+	}
+}
+
+
 
 /**
  * Copy the url
@@ -80,10 +103,7 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 
 	req->get = dictCreate(&dictTypeCopyNoneFreeAll, NULL);
 
-	/* we have strings in the following format:
-	 * pos:      0123456789AB
-	 * string:   ab=12&cd=34ø
-	 */
+	/* we have strings in the following format: at="ab=12&cd=34ø", len=11 */
 
 	while(1) {
 		char *eq, *amp, *key, *val;
@@ -138,26 +158,31 @@ int
 http_parser_onpath(http_parser *parser, const char *at, size_t len) {
 
 	struct http_request *req = parser->data;
+
 	req->path = calloc(1+len, 1);
 	memcpy(req->path, at, len);
 	req->path_len = len;
+
 	return 0;
 }
 
 /**
- * Retrieve headers
+ * Retrieve headers: called with the header name
  */
 int
 http_parser_on_header_field(http_parser *parser, const char *at, size_t len) {
 
 	struct http_request *req = parser->data;
 
-	req->header_next = calloc(len+1, 1);
+	req->header_next = calloc(len+1, 1); /* memorize the last seen */
 	memcpy(req->header_next, at, len);
 
 	return 0;
 }
 
+/**
+ * Retrieve headers: called with the header value
+ */
 int
 http_parser_on_header_value (http_parser *parser, const char *at, size_t len) {
 

@@ -19,14 +19,14 @@ file_send_iframe(struct http_request *req) {
 	static char *iframe_buffer = NULL;
 	static size_t iframe_buffer_len = -1;
 
-	/* read iframe file */
 	struct stat st;
 	int ret, fp;
 	size_t remain;
 	const char filename[] = "iframe.js";
 
+	/* read iframe file, the first time. */
 	if(iframe_buffer == NULL) {
-		ret = stat("iframe.js", &st);
+		ret = stat(filename, &st);
 		if(ret != 0) {
 			return;
 		}
@@ -94,15 +94,19 @@ Comet = {\
 
 	http_streaming_start_ct(req->fd, 200, "OK", "text/javascript");
 	http_streaming_chunk(req->fd, buffer_start, sizeof(buffer_start)-1);
+
 	/* then current host */
 	if(req->host) {
 		http_streaming_chunk(req->fd, req->host, req->host_len);
 	}
-	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
+
 	/* then common domain */
+	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
 	if(req->get && (de = dictFind(req->get, "domain"))) {
 		http_streaming_chunk(req->fd, de->val, de->size);
 	}
+
+	/* finally, the code itself. */
 	http_streaming_chunk(req->fd, buffer_js, sizeof(buffer_js)-1);
 	http_streaming_end(req->fd);
 }

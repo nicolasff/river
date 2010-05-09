@@ -20,6 +20,9 @@ http_response(int fd, int code, const char *status, const char *data, size_t len
 void
 http_response_ct(int fd, int code, const char *status, const char *data, size_t len, const char *content_type);
 
+/* Send an empty reply. */
+void
+send_empty_reply(struct http_request *req, int error);
 
 /* Start streaming with chunked encoding */
 void

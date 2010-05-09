@@ -29,28 +29,6 @@ http_init(struct conf *cfg) {
 	__cfg = cfg;
 }
 
-static void
-send_reply(struct http_request *req, int error) {
-
-	switch(error) {
-		case 400:
-			http_response(req->fd, 400, "Bad Request", "", 0);
-			break;
-
-		case 200:
-			http_response(req->fd, 200, "OK", "ok", 2);
-			break;
-
-		case 404:
-			http_response(req->fd, 404, "Not found", "", 0);
-			break;
-
-		case 403:
-			http_response(req->fd, 403, "Forbidden", "", 0);
-			break;
-	}
-}
-
 static int
 start_fun_http(struct http_request *req) {
 	http_streaming_start(req->fd, 200, "OK");
@@ -77,7 +55,7 @@ http_dispatch(struct http_request *req) {
 		return HTTP_DISCONNECT;
 	}
 
-	send_reply(req, 404);
+	send_empty_reply(req, 404);
 	return HTTP_DISCONNECT;
 }
 
@@ -118,7 +96,7 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	dictEntry *de;
 
 	if(!req->get) {
-		send_reply(req, 400);
+		send_empty_reply(req, 400);
 		return HTTP_DISCONNECT;
 	}
 
@@ -137,7 +115,7 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	}
 
 	if(!name) {
-		send_reply(req, 400);
+		send_empty_reply(req, 400);
 		return HTTP_DISCONNECT;
 	}
 
@@ -225,17 +203,17 @@ http_dispatch_publish(struct http_request *req) {
 		data_len = de->size;
 	}
 	if(!name || !data) {
-		send_reply(req, 403);
+		send_empty_reply(req, 403);
 		return HTTP_DISCONNECT;
 	}
 
 	/* find channel */
 	if(!(channel = channel_find(name))) {
-		send_reply(req, 200); /* pretend we just did. */
+		send_empty_reply(req, 200); /* pretend we just did. */
 		return HTTP_DISCONNECT;
 	}
 
-	send_reply(req, 200);
+	send_empty_reply(req, 200);
 
 	/* send to all channel users. */
 	channel_write(channel, data, data_len);
