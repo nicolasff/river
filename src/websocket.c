@@ -100,7 +100,7 @@ ws_client_msg(int fd, short event, void *ptr) {
 		success = 0;
 	}
 	if(success == 0) {
-		channel_del_connection(wsc->chan, wsc->pcu);
+		channel_del_connection(wsc->chan, wsc->cu);
 		evbuffer_free(wsc->buffer);
 		event_del(&wsc->ev);
 		free(wsc);
@@ -115,12 +115,12 @@ ws_client_msg(int fd, short event, void *ptr) {
  */
 void
 websocket_monitor(struct event_base *base, int fd, struct channel *chan,
-		struct channel_user *pcu) {
+		struct channel_user *cu) {
 
 	struct ws_client *wsc = calloc(1, sizeof(struct ws_client));
 	wsc->buffer = evbuffer_new();
 	wsc->chan = chan;
-	wsc->pcu = pcu;
+	wsc->cu = cu;
 
 	/* set socket as non-blocking. */
 	if (0 != fcntl(fd, F_SETFD, O_NONBLOCK)) {

@@ -87,45 +87,45 @@ channel_free(struct channel * p) {
 struct channel_user *
 channel_new_connection(int fd, int keep_connected, const char *jsonp, write_function wfun) {
 
-	struct channel_user *pcu = calloc(1, sizeof(struct channel_user));
-	pcu->wfun = wfun;
-	pcu->fd = fd;
-	pcu->free_on_remove = 1;
-	pcu->keep_connected = keep_connected;
+	struct channel_user *cu = calloc(1, sizeof(struct channel_user));
+	cu->wfun = wfun;
+	cu->fd = fd;
+	cu->free_on_remove = 1;
+	cu->keep_connected = keep_connected;
 
 	if(jsonp && *jsonp) {
 		char prefix[] = "(";
-		pcu->jsonp_len = strlen(jsonp) + sizeof(prefix) - 1;
-		pcu->jsonp = calloc(pcu->jsonp_len + 1, 1);
+		cu->jsonp_len = strlen(jsonp) + sizeof(prefix) - 1;
+		cu->jsonp = calloc(cu->jsonp_len + 1, 1);
 
-		memcpy(pcu->jsonp, jsonp, pcu->jsonp_len - (sizeof(prefix)-1));
-		memcpy(pcu->jsonp + pcu->jsonp_len - (sizeof(prefix)-1),
+		memcpy(cu->jsonp, jsonp, cu->jsonp_len - (sizeof(prefix)-1));
+		memcpy(cu->jsonp + cu->jsonp_len - (sizeof(prefix)-1),
 				prefix, sizeof(prefix)-1);
 	}
 
-	return pcu;
+	return cu;
 }
 
 void
-channel_add_connection(struct channel *channel, struct channel_user *pcu) {
+channel_add_connection(struct channel *channel, struct channel_user *cu) {
 
 	/* add user to the front of the list */
 	if(channel->user_list) {
-		channel->user_list->prev = pcu;
+		channel->user_list->prev = cu;
 	}
-	pcu->next = channel->user_list;
-	channel->user_list = pcu;
+	cu->next = channel->user_list;
+	channel->user_list = cu;
 }
 
 void
-channel_del_connection(struct channel *channel, struct channel_user *pcu) {
+channel_del_connection(struct channel *channel, struct channel_user *cu) {
 
 	/* remove from list */
-	if(pcu->next) {
-		pcu->next->prev = pcu->prev;
+	if(cu->next) {
+		cu->next->prev = cu->prev;
 	}
-	if(pcu->prev) {
-		pcu->prev->next = pcu->next;
+	if(cu->prev) {
+		cu->prev->next = cu->next;
 	} else {
 		if(channel->user_list) {
 			channel->user_list = channel->user_list->next;
@@ -134,19 +134,19 @@ channel_del_connection(struct channel *channel, struct channel_user *pcu) {
 			channel->user_list->prev = NULL;
 		}
 	}
-	if(channel->user_list == pcu) {
+	if(channel->user_list == cu) {
 		channel->user_list = NULL;
 	}
-	if(pcu->free_on_remove) {
-		free(pcu->jsonp);
-		free(pcu);
+	if(cu->free_on_remove) {
+		free(cu->jsonp);
+		free(cu);
 	}
 }
 
 void
 channel_write(struct channel *channel, const char *data, size_t data_len) {
 
-	struct channel_user *pcu;
+	struct channel_user *cu;
 	struct channel_message *msg;
 
 	CHANNEL_LOCK(channel);
@@ -169,35 +169,35 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 	channel->log_pos = LOG_NEXT(channel->log_pos);
 
 	/* push message to connected users */
-	for(pcu = channel->user_list; pcu; ) {
-		struct channel_user *next = pcu->next;
+	for(cu = channel->user_list; cu; ) {
+		struct channel_user *next = cu->next;
 		/* write message to connected user */
 		
 		int ret, total = 0, expected_len = msg->data_len;
 		char jsonp_end[] = ");\r\n";
-		if(pcu->jsonp) {
-			expected_len += pcu->jsonp_len + sizeof(jsonp_end)-1;
-			total += pcu->wfun(pcu->fd, pcu->jsonp, pcu->jsonp_len);
+		if(cu->jsonp) {
+			expected_len += cu->jsonp_len + sizeof(jsonp_end)-1;
+			total += cu->wfun(cu->fd, cu->jsonp, cu->jsonp_len);
 		}
-		total += (ret = pcu->wfun(pcu->fd, msg->data, msg->data_len));
-		if(pcu->jsonp) {
-			total += pcu->wfun(pcu->fd, jsonp_end, sizeof(jsonp_end)-1);
+		total += (ret = cu->wfun(cu->fd, msg->data, msg->data_len));
+		if(cu->jsonp) {
+			total += cu->wfun(cu->fd, jsonp_end, sizeof(jsonp_end)-1);
 		}
 		if(total != expected_len) { /* failed write */
-			shutdown(pcu->fd, SHUT_RDWR);
-			close(pcu->fd);
-			channel_del_connection(channel, pcu);
-		} else if(!pcu->keep_connected) {
-			http_streaming_end(pcu->fd);
-			channel_del_connection(channel, pcu);
+			shutdown(cu->fd, SHUT_RDWR);
+			close(cu->fd);
+			channel_del_connection(channel, cu);
+		} else if(!cu->keep_connected) {
+			http_streaming_end(cu->fd);
+			channel_del_connection(channel, cu);
 		}
-		pcu = next;
+		cu = next;
 	}
 	CHANNEL_UNLOCK(channel);
 }
 
 http_action
-channel_catchup_user(struct channel *channel, struct channel_user *pcu, unsigned long long seq) {
+channel_catchup_user(struct channel *channel, struct channel_user *cu, unsigned long long seq) {
 
 	struct channel_message *msg;
 	int pos, first, last, ret, sent_data = 0;
@@ -226,7 +226,7 @@ channel_catchup_user(struct channel *channel, struct channel_user *pcu, unsigned
 
 		msg = &channel->log_buffer[pos];
 
-		ret = pcu->wfun(pcu->fd, msg->data, msg->data_len);
+		ret = cu->wfun(cu->fd, msg->data, msg->data_len);
 		if(ret != (int)msg->data_len) { /* failed write */
 			success = 0;
 			break;
@@ -238,8 +238,8 @@ channel_catchup_user(struct channel *channel, struct channel_user *pcu, unsigned
 	if(0 == success) {
 		return HTTP_DISCONNECT;
 	}
-	if(sent_data && (!pcu->keep_connected)) {
-		http_streaming_end(pcu->fd);
+	if(sent_data && (!cu->keep_connected)) {
+		http_streaming_end(cu->fd);
 		return HTTP_DISCONNECT;
 	}
 	return HTTP_KEEP_CONNECTED;

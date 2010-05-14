@@ -12,7 +12,7 @@ struct ws_client {
 	struct event ev;
 
 	struct channel *chan;
-	struct channel_user *pcu;
+	struct channel_user *cu;
 
 	struct evbuffer *buffer;
 };
@@ -25,6 +25,6 @@ ws_write(int fd, const char *buf, size_t len);
 
 void
 websocket_monitor(struct event_base *base, int fd, struct channel *chan,
-		struct channel_user *pcu);
+		struct channel_user *cu);
 
 #endif /* WEBSOCKET_H */

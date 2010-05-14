@@ -10,7 +10,7 @@ struct event;
 
 struct user_timeout {
 
-	struct channel_user *pcu;
+	struct channel_user *cu;
 	struct channel *channel;
 	struct event ev;
 	struct timeval tv;

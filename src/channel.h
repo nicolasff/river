@@ -57,16 +57,16 @@ struct channel_user *
 channel_new_connection(int fd, int keep_connected, const char *jsonp, write_function wfun);
 
 void
-channel_add_connection(struct channel *channel, struct channel_user *pcu);
+channel_add_connection(struct channel *channel, struct channel_user *cu);
 
 void
-channel_del_connection(struct channel *channel, struct channel_user *pcu);
+channel_del_connection(struct channel *channel, struct channel_user *cu);
 
 void
 channel_write(struct channel *channel, const char *data, size_t data_len);
 
 http_action
-channel_catchup_user(struct channel *channel, struct channel_user *pcu, unsigned long long seq);
+channel_catchup_user(struct channel *channel, struct channel_user *cu, unsigned long long seq);
 
 #endif /* COMETD_CHANNEL_H */
 

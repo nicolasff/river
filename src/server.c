@@ -107,7 +107,7 @@ worker_main(void *ptr) {
 				break;
 
 			case HTTP_WEBSOCKET_MONITOR:
-				websocket_monitor(wi->base, req.fd, req.channel, req.pcu);
+				websocket_monitor(wi->base, req.fd, req.channel, req.cu);
 				break;
 
 			case HTTP_KEEP_CONNECTED: break;

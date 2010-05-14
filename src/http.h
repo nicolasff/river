@@ -56,7 +56,7 @@ struct http_request {
 	size_t origin_len;
 
 	struct channel *channel;
-	struct channel_user *pcu;
+	struct channel_user *cu;
 
 	dict *get;
 	struct event_base *base;

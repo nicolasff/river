@@ -68,13 +68,13 @@ on_client_too_old(int fd, short event, void *arg) {
 		return;
 	}
 	/* disconnect user */
-	http_streaming_end(ut->pcu->fd);
+	http_streaming_end(ut->cu->fd);
 
 	/* remove from channel */
 	CHANNEL_LOCK(ut->channel);
-	channel_del_connection(ut->channel, ut->pcu);
+	channel_del_connection(ut->channel, ut->cu);
 	CHANNEL_UNLOCK(ut->channel);
-	free(ut->pcu);
+	free(ut->cu);
 	free(ut);
 }
 
@@ -124,7 +124,7 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 		req->channel = channel_new(name);
 	}
 
-	req->pcu = channel_new_connection(req->fd, keep_connected, jsonp, write_fun);
+	req->cu = channel_new_connection(req->fd, keep_connected, jsonp, write_fun);
 	start_fun(req);
 
 	/* 3 cases:
@@ -137,11 +137,11 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	CHANNEL_LOCK(req->channel);
 	/* chan is locked, check if we need to catch-up */
 	if(has_seq && seq < req->channel->seq) {
-		ret = channel_catchup_user(req->channel, req->pcu, seq);
+		ret = channel_catchup_user(req->channel, req->cu, seq);
 		/* case 1 */
 		if(ret == HTTP_DISCONNECT) {
-			free(req->pcu->jsonp);
-			free(req->pcu);
+			free(req->cu->jsonp);
+			free(req->cu);
 			CHANNEL_UNLOCK(req->channel);
 			return HTTP_DISCONNECT;
 		} else {
@@ -151,18 +151,18 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 		/* case 3 */
 	}
 
-	/* stay connected: add pcu to channel. */
-	channel_add_connection(req->channel, req->pcu);
+	/* stay connected: add cu to channel. */
+	channel_add_connection(req->channel, req->cu);
 
 	/* add timeout to avoid keeping the user for too long. */
 	if(__cfg->client_timeout > 0) {
 		struct user_timeout *ut;
 
-		req->pcu->free_on_remove = 0;
+		req->cu->free_on_remove = 0;
 		CHANNEL_UNLOCK(req->channel);
 
 		ut = calloc(1, sizeof(struct user_timeout));
-		ut->pcu = req->pcu;
+		ut->cu = req->cu;
 		ut->channel = req->channel;
 
 		/* timeout value. */
