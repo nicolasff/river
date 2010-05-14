@@ -26,6 +26,10 @@ ws_start(struct http_request *req) {
 		return -1;
 	}
 
+	/* WARNING: this implementation is OLD, and does not use the new handshake.
+	 * In future versions, "Web Socket Protocol" will become "WebSocket Protocol"
+	 */
+
 	return dprintf(req->fd,
 		"HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
 		"Upgrade: WebSocket\r\n"
@@ -77,24 +81,27 @@ ws_client_msg(int fd, short event, void *ptr) {
 		unsigned char *data, *last;
 		int sz, msg_sz;
 		evbuffer_add(wsc->buffer, packet, ret);
+
 		while(1) {
 			data = EVBUFFER_DATA(wsc->buffer);
 			sz = EVBUFFER_LENGTH(wsc->buffer);
 
-			if(sz == 0) {
+			if(sz == 0) { /* no data */
 				break;
 			}
-			if(*data != 0) {
+			if(*data != 0) { /* missing frame start */
 				success = 0;
 				break;
 			}
 			last = memchr(data, 0xff, sz);
-			if(!last) {
+			if(!last) { /* no end of frame in sight, keep what we have for now. */
 				break;
 			}
 			msg_sz = last - data - 1;
 			channel_write(wsc->chan, (const char*)data + 1, msg_sz);
-			evbuffer_drain(wsc->buffer, msg_sz + 2); /* including frame delim. */
+
+			/* drain including frame delimiters (+2 bytes) */
+			evbuffer_drain(wsc->buffer, msg_sz + 2); 
 		}
 	} else {
 		success = 0;
