@@ -1,6 +1,5 @@
-OUT=bench catchup
-OBJS=bench.o catchup.o
-CFLAGS=-O3 -Wall -Wextra
+OUT=bench catchup websocket
+CFLAGS=-O0 -ggdb -Wall -Wextra
 LDFLAGS=-levent -lpthread
 
 all: $(OUT) Makefile
@@ -12,5 +11,5 @@ all: $(OUT) Makefile
 	$(CC) -c $(CFLAGS) -o $@ $<
 
 clean:
-	rm -f $(OBJS) $(OUT)
+	rm -f *.o $(OUT)
 
