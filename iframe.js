@@ -57,6 +57,8 @@ function CometClient(host){
 	this.pos = 0;
 	this.seq = 0;
 
+	this.hasWebSocket = (typeof(WebSocket) != "undefined");
+
 	// detect if client can stream data using "xhr.readyState=3" or not
 	this.canStream = 1;
 	this.isIE = false;
@@ -72,6 +74,9 @@ function CometClient(host){
 	}
 
 	this.disconnect = function() {
+		if(this.hasWebSocket) {
+			return this.wsDisconnect();
+		}
 		window.clearTimeout(this.reconnectionTimeout); // cancel reconnect.
 
 		try {
@@ -89,6 +94,41 @@ function CometClient(host){
 	}
 
 	this.connect = function(channel, onMsg) {
+
+		if(this.hasWebSocket) {
+			return this.wsConnect(channel, onMsg);
+		} else {
+			return this.streamingConnect(channel, onMsg);
+		}
+	}
+
+	this.wsConnect = function(channel, onMsg) {
+		this.socket = new WebSocket('ws://'+this.host+'/websocket?name='+channel);
+		this.socket.onopen = function () {
+		};
+		this.socket.onmessage = function (messageEvent) {
+			try {
+				var obj = JSON.parse(messageEvent.data);
+				if(obj[0] == "msg") {
+					onMsg(obj[1]);
+				}
+			} catch(e) {
+			}
+		};
+		this.socket.onclose = function () {
+			var comet = this;
+			window.setTimeout(function() {
+				comet.wsConnect(channel, onMsg);
+			}, 1000);
+		};
+	}
+
+	this.wsDisconnect = function() {
+		this.socket.onclose = function() {}; // don't reconnect.
+		this.socket.close();
+	}
+
+	this.streamingConnect = function(channel, onMsg) {
 
 		var comet = this;
 		comet.xhr = new XMLHttpRequest;
