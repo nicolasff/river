@@ -5,6 +5,8 @@
 #include <string.h>
 #include <fcntl.h>
 #include <syslog.h>
+#include <event.h>
+#include <sys/socket.h>
 
 #include "websocket.h"
 #include "channel.h"
@@ -60,22 +62,50 @@ ws_write(int fd, const char *buf, size_t len) {
  */
 static void
 ws_client_msg(int fd, short event, void *ptr) {
-	char buffer[1024];
-	int ret;
-	struct p_channel *chan = ptr;
+	char packet[1024], *pos;
+	int ret, success = 1;
+	struct ws_client *wsc = ptr;
 
 	if(event != EV_READ) {
 		return;
 	}
 
 	/* read message */
-	ret = read(fd, buffer, sizeof(buffer));
-	if(*buffer == 0 && ret >= 2) { /* frame starts with \x00 */
-		char *last;
-		if((last = strchr(buffer + 1, 0xff))) { /* frame ends with \xff */
-			/* publish to chan. */
-			channel_write(chan, buffer + 1, last - buffer - 1);
+	ret = read(fd, packet, sizeof(packet));
+	pos = packet;
+	if(ret > 0) {
+		unsigned char *data, *last;
+		int sz, msg_sz;
+		evbuffer_add(wsc->buffer, packet, ret);
+		while(1) {
+			data = EVBUFFER_DATA(wsc->buffer);
+			sz = EVBUFFER_LENGTH(wsc->buffer);
+
+			if(sz == 0) {
+				break;
+			}
+			if(*data != 0) {
+				success = 0;
+				break;
+			}
+			last = memchr(data, 0xff, sz);
+			if(!last) {
+				break;
+			}
+			msg_sz = last - data - 1;
+			channel_write(wsc->chan, (const char*)data + 1, msg_sz);
+			evbuffer_drain(wsc->buffer, msg_sz + 2); /* including frame delim. */
 		}
+	} else {
+		success = 0;
+	}
+	if(success == 0) {
+		channel_del_connection(wsc->chan, wsc->pcu);
+		evbuffer_free(wsc->buffer);
+		event_del(&wsc->ev);
+		free(wsc);
+		shutdown(fd, SHUT_RDWR);
+		close(fd);
 	}
 }
 
@@ -84,17 +114,21 @@ ws_client_msg(int fd, short event, void *ptr) {
  * Creates an event on possible read(2), and add it.
  */
 void
-websocket_monitor(struct event_base *base, int fd, struct p_channel *chan) {
+websocket_monitor(struct event_base *base, int fd, struct p_channel *chan,
+		struct p_channel_user *pcu) {
 
-	struct event *ev = calloc(1, sizeof(struct event));
+	struct ws_client *wsc = calloc(1, sizeof(struct ws_client));
+	wsc->buffer = evbuffer_new();
+	wsc->chan = chan;
+	wsc->pcu = pcu;
 
 	/* set socket as non-blocking. */
 	if (0 != fcntl(fd, F_SETFD, O_NONBLOCK)) {
 		syslog(LOG_WARNING, "fcntl error: %m\n");
 	}
 
-	event_set(ev, fd, EV_READ | EV_PERSIST, ws_client_msg, chan);
-	event_base_set(base, ev);
-	event_add(ev, NULL);
+	event_set(&wsc->ev, fd, EV_READ | EV_PERSIST, ws_client_msg, wsc);
+	event_base_set(base, &wsc->ev);
+	event_add(&wsc->ev, NULL);
 }
 

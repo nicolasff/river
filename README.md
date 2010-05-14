@@ -46,7 +46,7 @@ The following example considers the page to be at `example.com`, and the comet s
 		c.connect("public-channel", onMsg); // call onMsg upon reception of a message.
 	});
 </pre>
-3 - The `notice` function will now receive all messages published on `public-channel`.
+3 - The `onMsg` function will now receive all messages published on `public-channel`.
 
 
 ### Notes
