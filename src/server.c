@@ -115,7 +115,9 @@ worker_main(void *ptr) {
 
 		/* cleanup */
 		free(req.host); req.host = NULL; req.host_len = 0;
+		free(req.origin); req.origin = NULL; req.origin_len = 0;
 		free(req.path); req.path = NULL;
+
 		if(req.get) {
 			dictRelease(req.get);
 		}

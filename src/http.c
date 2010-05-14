@@ -198,6 +198,7 @@ http_parser_on_header_value (http_parser *parser, const char *at, size_t len) {
 		memcpy(req->origin, at, len);
 	}
 	free(req->header_next);
+	req->header_next = NULL;
 	return 0;
 }
 
