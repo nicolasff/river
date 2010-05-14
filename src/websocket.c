@@ -48,16 +48,15 @@ ws_start(struct http_request *req) {
 int
 ws_write(int fd, const char *buf, size_t len) {
 
-	if(write(fd, "\x00", 1) != 1) { /* frame starts with \x00 */
+	char *tmp = malloc(2+len);
+	tmp[0] = 0;
+	tmp[len+1] = 0xff;
+	memcpy(tmp+1, buf, len);
+	if(write(fd, tmp, len+2) != (int)len+2) {
+		free(tmp);
 		return -1;
 	}
-	if(write(fd, buf, len) != (int)len) {
-		return -1;
-	}
-	if(write(fd, "\xff", 1) != 1) { /* frame ends with \xff */
-		return -1;
-	}
-	/* we're expected to write only `len' bytes. the rest is protocol-specific. */
+	free(tmp);
 	return len;
 }
 
