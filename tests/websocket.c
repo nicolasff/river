@@ -43,6 +43,8 @@ struct worker_thread {
 
 	struct evbuffer *buffer;
 	int got_header;
+
+	struct event ev_w;
 };
 
 void
@@ -131,7 +133,7 @@ websocket_read(int fd, short event, void *ptr) {
 void
 websocket_write(int fd, short event, void *ptr) {
 	int ret;
-	(void)ptr;
+	struct worker_thread *wt = ptr;
 
 	/* printf("websocket_write (event=%s)\n", (event == EV_WRITE ? "EV_WRITE": "???")); */
 	if(event != EV_WRITE) {
@@ -140,21 +142,24 @@ websocket_write(int fd, short event, void *ptr) {
 
 	char message[] = "\x00hello, world!\xff";
 	ret = write(fd, message, sizeof(message)-1);
-	fsync(fd);
 	if(ret != sizeof(message)-1) {
 		fprintf(stderr, "write(2) on fd=%d failed: %s\n", fd, strerror(errno));
 		close(fd);
 	}
+
+	event_set(&wt->ev_w, fd, EV_WRITE, websocket_write, wt);
+	event_base_set(wt->base, &wt->ev_w);
+	ret = event_add(&wt->ev_w, NULL);
 }
 
 void*
 worker_main(void *ptr) {
 
 	char ws_handshake[] = "GET /websocket?name=x HTTP/1.1\r\n"
-				"Host: 127.0.0.1:1235\r\n"
+				"Host: 127.0.0.1:1234\r\n"
 				"Connection: Upgrade\r\n"
 				"Upgrade: WebSocket\r\n"
-				"Origin: http://127.0.0.1:1235\r\n"
+				"Origin: http://127.0.0.1:1234\r\n"
 				"\r\n";
 
 	struct worker_thread *wt = ptr;
@@ -164,7 +169,7 @@ worker_main(void *ptr) {
 	struct sockaddr_in addr;
 
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(1235);
+	addr.sin_port = htons(1234);
 	memset(&(addr.sin_addr), 0, sizeof(addr.sin_addr));
 	addr.sin_addr.s_addr = 0;
 
@@ -174,13 +179,14 @@ worker_main(void *ptr) {
 	ret = write(fd, ws_handshake, sizeof(ws_handshake)-1);
 	printf("write(2) on fd=%d: ret=%d (expected %d)\n", fd, ret, (int)sizeof(ws_handshake)-1);
 
-	struct event ev_r, ev_w;
+	struct event ev_r;
+	struct event ev_w;
 	event_set(&ev_r, fd, EV_READ | EV_PERSIST, websocket_read, wt);
 	event_base_set(wt->base, &ev_r);
 	ret = event_add(&ev_r, NULL);
 	printf("event_add returned %d\n", ret);
 
-	event_set(&ev_w, fd, EV_WRITE | EV_PERSIST, websocket_write, wt);
+	event_set(&ev_w, fd, EV_WRITE, websocket_write, wt);
 	event_base_set(wt->base, &ev_w);
 	ret = event_add(&ev_w, NULL);
 	printf("event_add returned %d\n", ret);
