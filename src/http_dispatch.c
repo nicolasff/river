@@ -188,7 +188,7 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 http_action
 http_dispatch_publish(struct http_request *req) {
 
-	struct p_channel *channel;
+	struct channel *channel;
 
 	dictEntry *de;
 	char *name = NULL, *data = NULL;

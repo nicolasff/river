@@ -32,10 +32,10 @@ channel_init() {
 	}
 }
 
-struct p_channel *
+struct channel *
 channel_new(const char *name) {
 
-	struct p_channel *channel = calloc(1, sizeof(struct p_channel));
+	struct channel *channel = calloc(1, sizeof(struct channel));
 
 	if(NULL == channel) {
 		return NULL;
@@ -48,7 +48,7 @@ channel_new(const char *name) {
 	}
 	channel->name_len = strlen(name);
 
-	channel->log_buffer = calloc(LOG_BUFFER_SIZE, sizeof(struct p_channel_message));
+	channel->log_buffer = calloc(LOG_BUFFER_SIZE, sizeof(struct channel_message));
 	if(NULL == channel->log_buffer) {
 		free(channel->name);
 		free(channel);
@@ -67,27 +67,27 @@ channel_new(const char *name) {
 	return channel;
 }
 
-struct p_channel *
+struct channel *
 channel_find(const char *name) {
 
 	dictEntry *de;
 	if((de = dictFind(__channels, name))) {
-		return (struct p_channel*)de->val;
+		return (struct channel*)de->val;
 	}
 	return NULL;
 }
 
 void
-channel_free(struct p_channel * p) {
+channel_free(struct channel * p) {
 
 	free(p->name);
 	free(p);
 }
 
-struct p_channel_user *
+struct channel_user *
 channel_new_connection(int fd, int keep_connected, const char *jsonp, write_function wfun) {
 
-	struct p_channel_user *pcu = calloc(1, sizeof(struct p_channel_user));
+	struct channel_user *pcu = calloc(1, sizeof(struct channel_user));
 	pcu->wfun = wfun;
 	pcu->fd = fd;
 	pcu->free_on_remove = 1;
@@ -107,7 +107,7 @@ channel_new_connection(int fd, int keep_connected, const char *jsonp, write_func
 }
 
 void
-channel_add_connection(struct p_channel *channel, struct p_channel_user *pcu) {
+channel_add_connection(struct channel *channel, struct channel_user *pcu) {
 
 	/* add user to the front of the list */
 	if(channel->user_list) {
@@ -118,7 +118,7 @@ channel_add_connection(struct p_channel *channel, struct p_channel_user *pcu) {
 }
 
 void
-channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu) {
+channel_del_connection(struct channel *channel, struct channel_user *pcu) {
 
 	/* remove from list */
 	if(pcu->next) {
@@ -144,10 +144,10 @@ channel_del_connection(struct p_channel *channel, struct p_channel_user *pcu) {
 }
 
 void
-channel_write(struct p_channel *channel, const char *data, size_t data_len) {
+channel_write(struct channel *channel, const char *data, size_t data_len) {
 
-	struct p_channel_user *pcu;
-	struct p_channel_message *msg;
+	struct channel_user *pcu;
+	struct channel_message *msg;
 
 	CHANNEL_LOCK(channel);
 
@@ -170,7 +170,7 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len) {
 
 	/* push message to connected users */
 	for(pcu = channel->user_list; pcu; ) {
-		struct p_channel_user *next = pcu->next;
+		struct channel_user *next = pcu->next;
 		/* write message to connected user */
 		
 		int ret, total = 0, expected_len = msg->data_len;
@@ -197,9 +197,9 @@ channel_write(struct p_channel *channel, const char *data, size_t data_len) {
 }
 
 http_action
-channel_catchup_user(struct p_channel *channel, struct p_channel_user *pcu, unsigned long long seq) {
+channel_catchup_user(struct channel *channel, struct channel_user *pcu, unsigned long long seq) {
 
-	struct p_channel_message *msg;
+	struct channel_message *msg;
 	int pos, first, last, ret, sent_data = 0;
 	int success = 1, found = 0;
 

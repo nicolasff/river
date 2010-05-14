@@ -5,13 +5,13 @@
 
 struct http_request;
 struct conf;
-struct p_channel;
+struct channel;
 struct event;
 
 struct user_timeout {
 
-	struct p_channel_user *pcu;
-	struct p_channel *channel;
+	struct channel_user *pcu;
+	struct channel *channel;
 	struct event ev;
 	struct timeval tv;
 };

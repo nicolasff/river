@@ -26,7 +26,7 @@ ws_start(struct http_request *req) {
 		return -1;
 	}
 
-	return dprintf(req->fd, 
+	return dprintf(req->fd,
 		"HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
 		"Upgrade: WebSocket\r\n"
 		"Connection: Upgrade\r\n"
@@ -114,8 +114,8 @@ ws_client_msg(int fd, short event, void *ptr) {
  * Creates an event on possible read(2), and add it.
  */
 void
-websocket_monitor(struct event_base *base, int fd, struct p_channel *chan,
-		struct p_channel_user *pcu) {
+websocket_monitor(struct event_base *base, int fd, struct channel *chan,
+		struct channel_user *pcu) {
 
 	struct ws_client *wsc = calloc(1, sizeof(struct ws_client));
 	wsc->buffer = evbuffer_new();
