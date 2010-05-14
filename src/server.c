@@ -221,7 +221,7 @@ update_event(struct dispatcher_info *di, int flags) {
 int
 server_run(short nb_workers, const char *ip, short port) {
 
-	int i;
+	int i, ret;
 	struct event_base *base;
 	struct queue_t *q;
 	struct dispatcher_info di;
@@ -230,11 +230,17 @@ server_run(short nb_workers, const char *ip, short port) {
 	q = queue_new();
 
 	/* setup socket + libevent */
-	di.fd = socket_setup(ip, port);
+	ret = di.fd = socket_setup(ip, port);
+	if(!ret) {
+		return -1;
+	}
 	base = event_init();
 	event_set(&di.ev, di.fd, EV_READ | EV_PERSIST, on_accept, &di);
 	event_base_set(base, &di.ev);
-	event_add(&di.ev, NULL);
+	ret = event_add(&di.ev, NULL);
+	if(ret != 0) {
+		return -1;
+	}
 
 	/* fill in dispatcher info */
 	di.base = base;

@@ -58,6 +58,7 @@ The following example considers the page to be at `example.com`, and the comet s
 → That’s it for the proof of concept!
 
 #### TODO
+* Support Flash’s `<policy-file-request>\0` in the WebSocket implementation.
 * Find a better name, “cometd” is already taken.
 * Add automatic dead channel deletion.
 * Cleanup code.

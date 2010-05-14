@@ -12,8 +12,7 @@
 int
 main(int argc, char *argv[]) {
 
-	(void)argc;
-	(void)argv;
+	int ret;
 
 	struct conf *cfg;
 	
@@ -32,7 +31,11 @@ main(int argc, char *argv[]) {
 
 	http_init(cfg);
 	channel_init();
-	server_run(cfg->threads, cfg->ip, cfg->port);
+	ret = server_run(cfg->threads, cfg->ip, cfg->port);
+	if(ret != 0) {
+		fprintf(stderr, "Server start failed. Check syslog for more info.\n");
+		return EXIT_FAILURE;
+	}
 
 	while(1) {
 		sleep(60);
