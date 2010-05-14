@@ -58,5 +58,6 @@ The following example considers the page to be at `example.com`, and the comet s
 → That’s it for the proof of concept!
 
 #### TODO
+* Find a better name, “cometd” is already taken.
 * Add automatic dead channel deletion.
 * Cleanup code.
