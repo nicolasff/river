@@ -10,6 +10,7 @@ struct evbuffer;
 
 struct ws_client {
 	struct event ev;
+	struct event_base *base;
 
 	struct channel *chan; /* current channel the user is connected on */
 	struct channel_user *cu; /* channel user using ws:// */

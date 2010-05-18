@@ -51,11 +51,11 @@ void
 process_message(struct worker_thread *wt, size_t sz) {
 
 	// printf("process_message\n");
-	wt->byte_count += sz;
 	if(wt->request_count % 10000 == 0) {
 		printf("%8d messages left (got %9d bytes so far).\n",
 			wt->request_count, wt->byte_count);
 	}
+	wt->byte_count += sz;
 
 	/* decrement read count, and stop receiving when we reach zero. */
 	wt->request_count--;
@@ -64,9 +64,31 @@ process_message(struct worker_thread *wt, size_t sz) {
 	}
 }
 
+void
+websocket_write(int fd, short event, void *ptr) {
+	int ret;
+	struct worker_thread *wt = ptr;
+
+	/* printf("websocket_write (event=%s)\n", (event == EV_WRITE ? "EV_WRITE": "???")); */
+	if(event != EV_WRITE) {
+		return;
+	}
+
+	char message[] = "\x00hello, world!\xff";
+	ret = write(fd, message, sizeof(message)-1);
+	if(ret != sizeof(message)-1) {
+		fprintf(stderr, "write(2) on fd=%d failed: %s\n", fd, strerror(errno));
+		close(fd);
+	}
+
+	event_set(&wt->ev_w, fd, EV_WRITE, websocket_write, wt);
+	event_base_set(wt->base, &wt->ev_w);
+	ret = event_add(&wt->ev_w, NULL);
+}
+
 static void
 websocket_read(int fd, short event, void *ptr) {
-	unsigned char packet[2048], *pos;
+	char packet[2048], *pos;
 	int ret, success = 1;
 
 	struct worker_thread *wt = ptr;
@@ -80,24 +102,26 @@ websocket_read(int fd, short event, void *ptr) {
 	ret = read(fd, packet, sizeof(packet));
 	pos = packet;
 	if(ret > 0) {
-		unsigned char *data, *last;
+		char *data, *last;
 		int sz, msg_sz;
 		
 		if(wt->got_header == 0) { /* first response */
-			unsigned char *frame_start = memchr(packet, 0, ret);
+			char *frame_start = strstr(packet, "\r\n\r\n");
 			if(frame_start == NULL) {
 				return;
 			} else {
-				printf("got header\n");
+
 				wt->got_header = 1;
-				evbuffer_add(wt->buffer, frame_start, ret - (frame_start - packet));
+				event_set(&wt->ev_w, fd, EV_WRITE, websocket_write, wt);
+				event_base_set(wt->base, &wt->ev_w);
+				ret = event_add(&wt->ev_w, NULL);
 			}
 		} else {
 			evbuffer_add(wt->buffer, packet, ret);
 		}
 
 		while(1) {
-			data = EVBUFFER_DATA(wt->buffer);
+			data = (char*)EVBUFFER_DATA(wt->buffer);
 			sz = EVBUFFER_LENGTH(wt->buffer);
 
 			if(sz == 0) { /* no data */
@@ -130,28 +154,6 @@ websocket_read(int fd, short event, void *ptr) {
 	}
 }
 
-void
-websocket_write(int fd, short event, void *ptr) {
-	int ret;
-	struct worker_thread *wt = ptr;
-
-	/* printf("websocket_write (event=%s)\n", (event == EV_WRITE ? "EV_WRITE": "???")); */
-	if(event != EV_WRITE) {
-		return;
-	}
-
-	char message[] = "\x00hello, world!\xff";
-	ret = write(fd, message, sizeof(message)-1);
-	if(ret != sizeof(message)-1) {
-		fprintf(stderr, "write(2) on fd=%d failed: %s\n", fd, strerror(errno));
-		close(fd);
-	}
-
-	event_set(&wt->ev_w, fd, EV_WRITE, websocket_write, wt);
-	event_base_set(wt->base, &wt->ev_w);
-	ret = event_add(&wt->ev_w, NULL);
-}
-
 void*
 worker_main(void *ptr) {
 
@@ -174,22 +176,17 @@ worker_main(void *ptr) {
 	addr.sin_addr.s_addr = 0;
 
 	ret = connect(fd, (struct sockaddr*)&addr, sizeof(struct sockaddr));
-	printf("connect(2): ret=%d\n", ret);
+	if(ret != 0) {
+		fprintf(stderr, "connect(2): ret=%d: %s\n", ret, strerror(errno));
+		return NULL;
+	}
 
 	ret = write(fd, ws_handshake, sizeof(ws_handshake)-1);
-	printf("write(2) on fd=%d: ret=%d (expected %d)\n", fd, ret, (int)sizeof(ws_handshake)-1);
 
 	struct event ev_r;
-	struct event ev_w;
 	event_set(&ev_r, fd, EV_READ | EV_PERSIST, websocket_read, wt);
 	event_base_set(wt->base, &ev_r);
-	ret = event_add(&ev_r, NULL);
-	printf("event_add returned %d\n", ret);
-
-	event_set(&ev_w, fd, EV_WRITE, websocket_write, wt);
-	event_base_set(wt->base, &ev_w);
-	ret = event_add(&ev_w, NULL);
-	printf("event_add returned %d\n", ret);
+	event_add(&ev_r, NULL);
 
 	event_base_dispatch(wt->base);
 	return NULL;
@@ -203,7 +200,7 @@ main(int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
 	//int connections_per_thread = 10;
-	int request_count = 1000000;
+	int request_count = 100*1000;
 
 	struct timespec t0, t1;
 	clock_gettime(CLOCK_MONOTONIC, &t0);
@@ -214,9 +211,10 @@ main(int argc, char *argv[]) {
 	wt.byte_count = 0;
 	wt.got_header = 0;
 
-	pthread_create(&wt.thread, NULL, worker_main, &wt);
-
-	pthread_join(wt.thread, NULL);
+	worker_main(&wt);
+//	pthread_create(&wt.thread, NULL, worker_main, &wt);
+//
+//	pthread_join(wt.thread, NULL);
 
 	/* timing */
 	clock_gettime(CLOCK_MONOTONIC, &t1);

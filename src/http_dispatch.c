@@ -124,8 +124,12 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 		req->channel = channel_new(name);
 	}
 
+	CHANNEL_LOCK(req->channel);
 	req->cu = channel_new_connection(req->fd, keep_connected, jsonp, write_fun);
-	start_fun(req);
+	if(-1 == start_fun(req)) {
+		CHANNEL_UNLOCK(req->channel);
+		return HTTP_DISCONNECT;
+	}
 
 	/* 3 cases:
 	 *
@@ -134,7 +138,6 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	 * 3 - connect and stay connected
 	 **/
 
-	CHANNEL_LOCK(req->channel);
 	/* chan is locked, check if we need to catch-up */
 	if(has_seq && seq < req->channel->seq) {
 		ret = channel_catchup_user(req->channel, req->cu, seq);

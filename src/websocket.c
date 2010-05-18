@@ -7,6 +7,7 @@
 #include <syslog.h>
 #include <event.h>
 #include <sys/socket.h>
+#include <errno.h>
 
 #include "websocket.h"
 #include "channel.h"
@@ -48,11 +49,17 @@ ws_start(struct http_request *req) {
 int
 ws_write(int fd, const char *buf, size_t len) {
 
+	int ret;
+
 	char *tmp = malloc(2+len);
+
 	tmp[0] = 0;
 	tmp[len+1] = 0xff;
 	memcpy(tmp+1, buf, len);
-	if(write(fd, tmp, len+2) != (int)len+2) {
+
+	ret = write(fd, tmp, len+2);
+
+	if(ret != (int)len+2) {
 		free(tmp);
 		return -1;
 	}
@@ -100,7 +107,7 @@ ws_client_msg(int fd, short event, void *ptr) {
 			channel_write(wsc->chan, (const char*)data + 1, msg_sz);
 
 			/* drain including frame delimiters (+2 bytes) */
-			evbuffer_drain(wsc->buffer, msg_sz + 2); 
+			evbuffer_drain(wsc->buffer, msg_sz + 2);
 		}
 	} else {
 		success = 0;
@@ -112,6 +119,10 @@ ws_client_msg(int fd, short event, void *ptr) {
 		free(wsc);
 		shutdown(fd, SHUT_RDWR);
 		close(fd);
+	} else { /* re-add the event only in case of success */
+		event_set(&wsc->ev, fd, EV_READ, ws_client_msg, wsc);
+		event_base_set(wsc->base, &wsc->ev);
+		event_add(&wsc->ev, NULL);
 	}
 }
 
@@ -125,6 +136,7 @@ websocket_monitor(struct event_base *base, int fd, struct channel *chan,
 
 	struct ws_client *wsc = calloc(1, sizeof(struct ws_client));
 	wsc->buffer = evbuffer_new();
+	wsc->base = base;
 	wsc->chan = chan;
 	wsc->cu = cu;
 
@@ -133,8 +145,8 @@ websocket_monitor(struct event_base *base, int fd, struct channel *chan,
 		syslog(LOG_WARNING, "fcntl error: %m\n");
 	}
 
-	event_set(&wsc->ev, fd, EV_READ | EV_PERSIST, ws_client_msg, wsc);
-	event_base_set(base, &wsc->ev);
+	event_set(&wsc->ev, fd, EV_READ, ws_client_msg, wsc);
+	event_base_set(wsc->base, &wsc->ev);
 	event_add(&wsc->ev, NULL);
 }
 
