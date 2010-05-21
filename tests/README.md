@@ -32,6 +32,26 @@ Read 1000000 messages in 11.70 sec: 85506.62/sec
 -------------------
 **Results:** The channel sent out 85506.62 messages per second, 1 million in 11.7 seconds.
 
+##`websocket`, testing the performance using HTML5 Web Sockets##
+`websocket` spawns a number of threads, each reading from a channel as well as writing to it. The number of threads and of messages sent per thread are configurable.
+
+**Example**
+5 threads, each sending 200,000 messages for a total of a million messages sent to the server and received back.
+
+<pre>
+thread 3041109776:   200000 messages left (got         0 bytes so far).
+thread 3015931664:   200000 messages left (got         0 bytes so far).
+
+		[...] (many more lines)
+
+thread 3007538960:        0 messages left (got  16000000 bytes so far).
+thread 3024324368:        0 messages left (got  16000000 bytes so far).
+Read 1000150 messages in 2.45 sec: 408558.01 msg/sec (32 MB/sec)
+</pre>
+
+-------------------
+**Results:** The server received and sent back 408,558 messages per second, 1 million in 2.45 seconds.
+
 
 ##`catchup`, testing the reconnection feature##
 Upon connection to a channel, it is possible to provide the last sequence number read on that channel, in order to *catch-up* on missed messages.
