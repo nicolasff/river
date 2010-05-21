@@ -18,7 +18,17 @@
 int
 ws_start(struct http_request *req) {
 
+	int ret;
 	char *name = NULL;
+	char *buffer;
+	char template[] = "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+		"Upgrade: WebSocket\r\n"
+		"Connection: Upgrade\r\n"
+		"WebSocket-Origin: %s\r\n"
+		"WebSocket-Location: ws://%s/websocket?name=%s\r\n"
+		"Origin: http://%s\r\n"
+		"\r\n";
+	size_t sz;
 	dictEntry *de;
 	if((de = dictFind(req->get, "name"))) {
 		name = de->val;
@@ -31,16 +41,14 @@ ws_start(struct http_request *req) {
 	 * In future versions, "Web Socket Protocol" will become "WebSocket Protocol"
 	 */
 
-	return dprintf(req->fd,
-		"HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
-		"Upgrade: WebSocket\r\n"
-		"Connection: Upgrade\r\n"
-		"WebSocket-Origin: %s\r\n"
-		"WebSocket-Location: ws://%s/websocket?name=%s\r\n"
-		"Origin: http://%s\r\n"
-		"\r\n",
+	sz = sizeof(template) + req->origin_len + req->host_len * 2 + de->size
+		- (2 + 2 + 2 + 2); /* %s must be removed from the template size */
+	buffer = calloc(sz + 1, 1);
+	sprintf(buffer, template, req->origin, req->host, name, req->host);
+	ret = write(req->fd, buffer, sz);
+	free(buffer);
 
-		req->origin, req->host, name, req->host);
+	return ret;
 }
 
 /**

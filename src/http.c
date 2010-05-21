@@ -10,22 +10,55 @@ void
 http_response(int fd, int code, const char *status, const char *data, size_t len) {
 	http_response_ct(fd, code, status, data, len, "text/html");
 }
+static int
+hex_length(unsigned int i) {
+	int ret = 0;
+	while(i) {
+		i >>= 4;
+		ret++;
+	}
+	return ret;
+}
+
+static int
+integer_length(int i) {
+    int sz = 0;
+    int ci = abs(i);
+    while (ci>0) {
+            ci = (ci/10);
+            sz += 1;
+    }
+    if(i == 0) { /* log 0 doesn't make sense. */
+            sz = 1;
+    } else if(i < 0) { /* allow for neg sign as well. */
+            sz++;
+    }
+    return sz;
+}
 
 void
 http_response_ct(int fd, int code, const char *status, const char *data, size_t len, const char *content_type) {
 	
 	int ret;
-	/* GNU-only. TODO: replace with something more portable */
-	ret = dprintf(fd, "HTTP/1.1 %d %s\r\n"
+	size_t sz;
+	char *buffer;
+	const char template[] = "HTTP/1.1 %d %s\r\n"
 			"Content-Type: %s\r\n"
 			"Content-Length: %lu\r\n"
-			"\r\n",
-			code, status, content_type, len);
-	if(ret) {
-		ret = write(fd, data, len);
+			"\r\n";
+	sz = sizeof(template)-1 + integer_length(code) + strlen(status)
+		+ strlen(content_type) + integer_length((int)len)
+		- (2 + 2 + 2 + 3) /* %d %s %s %lu*/
+		+ len;
+	buffer = calloc(sz + 1, 1);
+	ret = sprintf(buffer, template, code, status, content_type, len);
+	memcpy(buffer + ret, data, len);
+
+	ret = write(fd, buffer, sz);
+	free(buffer);
+	if(ret != (int)sz) {
 		shutdown(fd, SHUT_RDWR);
 		close(fd);
-		(void)ret;
 	}
 }
 
@@ -36,23 +69,39 @@ http_streaming_start(int fd, int code, const char *status) {
 void
 http_streaming_start_ct(int fd, int code, const char *status, const char *content_type) {
 
-	dprintf(fd, "HTTP/1.1 %d %s\r\n"
+	int ret;
+	size_t sz;
+	char *buffer;
+	const char template[] = "HTTP/1.1 %d %s\r\n"
 			"Content-Type: %s\r\n"
 			"Transfer-Encoding: chunked\r\n"
-			"\r\n"
-			, code, status, content_type);
+			"\r\n";
+	sz = sizeof(template)-1 + integer_length(code) + strlen(status)
+		+ strlen(content_type) - (2 + 2 + 2); /* %d %s %s */
+	buffer = calloc(sz + 1, 1);
+	ret = sprintf(buffer, template, code, status, content_type);
+
+	ret = write(fd, buffer, sz);
+	free(buffer);
 }
 
 int
 http_streaming_chunk(int fd, const char *data, size_t len) {
 
-	int tmp, ret;
-	dprintf(fd, "%X\r\n", (unsigned int)len);
-	ret = write(fd, data, len);
-	tmp = write(fd, "\r\n", 2);
-	(void)tmp;
+	int ret;
+	size_t sz = hex_length(len) + 2 + len + 2;
+	char *buffer = calloc(sz + 1, 1);
 
-	return ret;
+	ret = sprintf(buffer, "%X\r\n", (unsigned int)len);
+	memcpy(buffer + ret, data, len);
+	memcpy(buffer + ret + len, "\r\n", 2);
+
+	ret = write(fd, buffer, sz);
+	free(buffer);
+	if(ret == (int)sz) { /* success */
+		return (int)len;
+	}
+	return -1; /* failure */
 }
 
 void
