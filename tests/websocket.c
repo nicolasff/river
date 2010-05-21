@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -31,13 +32,10 @@ struct host_info {
 /* worker_thread, with counter of remaining messages */
 struct worker_thread {
 	struct host_info *hi;
-	int reader_per_chan;
 	struct event_base *base;
 
-	char **channels;
-	int channel_count;
-
-	int request_count;
+	int msg_target;
+	int msg_count;
 	int byte_count;
 	pthread_t thread;
 
@@ -45,21 +43,23 @@ struct worker_thread {
 	int got_header;
 
 	struct event ev_w;
+	char *chan;
 };
 
 void
 process_message(struct worker_thread *wt, size_t sz) {
 
 	// printf("process_message\n");
-	if(wt->request_count % 10000 == 0) {
-		printf("%8d messages left (got %9d bytes so far).\n",
-			wt->request_count, wt->byte_count);
+	if(wt->msg_count % 10000 == 0) {
+		printf("thread %u: %8d messages left (got %9d bytes so far).\n",
+			(unsigned int)wt->thread,
+			wt->msg_target - wt->msg_count, wt->byte_count);
 	}
 	wt->byte_count += sz;
 
 	/* decrement read count, and stop receiving when we reach zero. */
-	wt->request_count--;
-	if(wt->request_count == 0) {
+	wt->msg_count++;
+	if(wt->msg_count == wt->msg_target) {
 		event_base_loopexit(wt->base, NULL);
 	}
 }
@@ -69,7 +69,6 @@ websocket_write(int fd, short event, void *ptr) {
 	int ret;
 	struct worker_thread *wt = ptr;
 
-	/* printf("websocket_write (event=%s)\n", (event == EV_WRITE ? "EV_WRITE": "???")); */
 	if(event != EV_WRITE) {
 		return;
 	}
@@ -77,7 +76,7 @@ websocket_write(int fd, short event, void *ptr) {
 	char message[] = "\x00hello, world!\xff";
 	ret = write(fd, message, sizeof(message)-1);
 	if(ret != sizeof(message)-1) {
-		fprintf(stderr, "write(2) on fd=%d failed: %s\n", fd, strerror(errno));
+		fprintf(stderr, "write on %d failed:%s\n", fd, strerror(errno));
 		close(fd);
 	}
 
@@ -93,7 +92,6 @@ websocket_read(int fd, short event, void *ptr) {
 
 	struct worker_thread *wt = ptr;
 
-	/* printf("websocket_read (event=%s)\n", (event == EV_READ ? "EV_READ": "???")); */
 	if(event != EV_READ) {
 		return;
 	}
@@ -109,14 +107,15 @@ websocket_read(int fd, short event, void *ptr) {
 			char *frame_start = strstr(packet, "\r\n\r\n");
 			if(frame_start == NULL) {
 				return;
-			} else {
-
+			} else { /* start monitoring possible writes */
 				wt->got_header = 1;
-				event_set(&wt->ev_w, fd, EV_WRITE, websocket_write, wt);
+				event_set(&wt->ev_w, fd, EV_WRITE,
+						websocket_write, wt);
 				event_base_set(wt->base, &wt->ev_w);
 				ret = event_add(&wt->ev_w, NULL);
 			}
 		} else {
+			/* we've had the header already, now bufffer data. */
 			evbuffer_add(wt->buffer, packet, ret);
 		}
 
@@ -125,20 +124,19 @@ websocket_read(int fd, short event, void *ptr) {
 			sz = EVBUFFER_LENGTH(wt->buffer);
 
 			if(sz == 0) { /* no data */
-				/* printf("no data.\n"); */
 				break;
 			}
 			if(*data != 0) { /* missing frame start */
-				printf("missing frame start. (ret=%d) data=[%s]\n", ret, data);
 				success = 0;
 				break;
 			}
-			last = memchr(data, 0xff, sz);
-			if(!last) { /* no end of frame in sight, keep what we have for now. */
+			last = memchr(data, 0xff, sz); /* look for frame end */
+			if(!last) {
+				/* no end of frame in sight. */
 				break;
 			}
 			msg_sz = last - data - 1;
-			process_message(ptr, msg_sz);
+			process_message(ptr, msg_sz); /* record packet */
 
 			/* drain including frame delimiters (+2 bytes) */
 			evbuffer_drain(wt->buffer, msg_sz + 2); 
@@ -157,70 +155,158 @@ websocket_read(int fd, short event, void *ptr) {
 void*
 worker_main(void *ptr) {
 
-	char ws_handshake[] = "GET /websocket?name=x HTTP/1.1\r\n"
-				"Host: 127.0.0.1:1234\r\n"
+	char ws_template[] = "GET /websocket?name=%s HTTP/1.1\r\n"
+				"Host: %s:%d\r\n"
 				"Connection: Upgrade\r\n"
 				"Upgrade: WebSocket\r\n"
-				"Origin: http://127.0.0.1:1234\r\n"
+				"Origin: http://%s:%d\r\n"
 				"\r\n";
 
 	struct worker_thread *wt = ptr;
 
 	int ret;
-	int fd = socket(AF_INET, SOCK_STREAM, 0);
+	int fd;
 	struct sockaddr_in addr;
+	char *ws_handshake;
+	size_t ws_handshake_sz;
 
+	/* connect socket */
+	fd = socket(AF_INET, SOCK_STREAM, 0);
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(1234);
+	addr.sin_port = htons(wt->hi->port);
 	memset(&(addr.sin_addr), 0, sizeof(addr.sin_addr));
-	addr.sin_addr.s_addr = 0;
+	addr.sin_addr.s_addr = inet_addr(wt->hi->host);
 
 	ret = connect(fd, (struct sockaddr*)&addr, sizeof(struct sockaddr));
 	if(ret != 0) {
-		fprintf(stderr, "connect(2): ret=%d: %s\n", ret, strerror(errno));
+		fprintf(stderr, "connect: ret=%d: %s\n", ret, strerror(errno));
 		return NULL;
 	}
 
-	ret = write(fd, ws_handshake, sizeof(ws_handshake)-1);
+	/* initialize worker thread */
+	wt->base = event_base_new();
+	wt->buffer = evbuffer_new();
+	wt->byte_count = 0;
+	wt->got_header = 0;
+
+	/* send handshake */
+	ws_handshake_sz = sizeof(ws_handshake) + strlen(wt->chan)
+		+ 2*strlen(wt->hi->host) + 200;
+	ws_handshake = calloc(ws_handshake_sz, 1);
+	ws_handshake_sz = (size_t)sprintf(ws_handshake, ws_template, 
+			wt->chan,
+			wt->hi->host, wt->hi->port,
+			wt->hi->host, wt->hi->port);
+	ret = write(fd, ws_handshake, ws_handshake_sz);
 
 	struct event ev_r;
 	event_set(&ev_r, fd, EV_READ | EV_PERSIST, websocket_read, wt);
 	event_base_set(wt->base, &ev_r);
 	event_add(&ev_r, NULL);
 
+	/* go! */
 	event_base_dispatch(wt->base);
+	event_base_free(wt->base);
+	free(ws_handshake);
 	return NULL;
 }
 
-	struct worker_thread wt;
+void
+usage(const char* argv0, char *host_default, short port_default,
+		int thread_count_default, int messages_default) {
+
+	printf("Usage: %s [options]\n"
+		"Options are:\n"
+		"\t-h host:port\t(default = \"%s:%d\")\n"
+		"\t-c threads\t(default = %d)\n"
+		"\t-n count\t(number of messages per thread, default = %d)\n",
+		argv0, host_default, port_default,
+		thread_count_default, messages_default);
+}
 
 int
 main(int argc, char *argv[]) {
 
-	(void)argc;
-	(void)argv;
-	//int connections_per_thread = 10;
-	int request_count = 100*1000;
-
 	struct timespec t0, t1;
+
+	int messages_default = 100000;
+	int thread_count_default = 4;
+	short port_default = 1234;
+	char *host_default = "127.0.0.1";
+
+	int msg_target = messages_default;
+	int thread_count = thread_count_default;
+	int i, opt;
+	char *colon;
+	double total = 0, total_bytes = 0;
+
+	struct host_info hi = {host_default, port_default};
+
+	struct worker_thread *workers;
+	
+	/* getopt */
+	while ((opt = getopt(argc, argv, "h:c:n:")) != -1) {
+		switch (opt) {
+			case 'h':
+				colon = strchr(optarg, ':');
+				if(!colon) {
+					size_t sz = strlen(optarg);
+					hi.host = calloc(1 + sz, 1);
+					strncpy(hi.host, optarg, sz);
+				} else {
+					hi.host = calloc(1+colon-optarg, 1);
+					strncpy(hi.host, optarg, colon-optarg);
+					hi.port = (short)atol(colon+1);
+				}
+				break;
+			case 'c':
+				thread_count = atoi(optarg);
+				break;
+			case 'n':
+				msg_target = atoi(optarg);
+				break;
+			default: /* '?' */
+				usage(argv[0], host_default, port_default,
+						thread_count_default,
+						messages_default);
+				exit(EXIT_FAILURE);
+		}
+	}
+
+	/* run threads */
+	workers = malloc(thread_count * sizeof(struct worker_thread));
+
 	clock_gettime(CLOCK_MONOTONIC, &t0);
+	for(i = 0; i < thread_count; ++i) {
+		workers[i].msg_target = msg_target;
+		workers[i].hi = &hi;
+		workers[i].chan = channel_make_name();
 
-	wt.base = event_base_new();
-	wt.request_count = request_count;
-	wt.buffer = evbuffer_new();
-	wt.byte_count = 0;
-	wt.got_header = 0;
+		pthread_create(&workers[i].thread, NULL,
+				worker_main, &workers[i]);
+	}
 
-	worker_main(&wt);
-//	pthread_create(&wt.thread, NULL, worker_main, &wt);
-//
-//	pthread_join(wt.thread, NULL);
+	/* wait for threads to finish */
+	for(i = 0; i < thread_count; ++i) {
+		pthread_join(workers[i].thread, NULL);
+		total += workers[i].msg_count;
+		total_bytes += workers[i].byte_count;
+	}
 
 	/* timing */
 	clock_gettime(CLOCK_MONOTONIC, &t1);
 	float mili0 = t0.tv_sec * 1000 + t0.tv_nsec / 1000000;
 	float mili1 = t1.tv_sec * 1000 + t1.tv_nsec / 1000000;
-	printf("Read %d messages in %0.2f sec: %0.2f/sec\n", request_count, (mili1-mili0)/1000.0, 1000*(float)request_count/(mili1-mili0));
+
+	if(total != 0) {
+	printf("Read %ld messages in %0.2f sec: %0.2f msg/sec (%d MB/sec)\n",
+			(long)total, 
+			(mili1-mili0)/1000.0,
+			1000*total/(mili1-mili0),
+			(int)(total_bytes / (1000*(mili1-mili0))));
+	} else {
+		printf("No message was read.\n");
+	}
 
 	return EXIT_SUCCESS;
 }
