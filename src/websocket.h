@@ -25,6 +25,9 @@ int
 ws_write(int fd, const char *buf, size_t len);
 
 void
+ws_close(struct ws_client *wsc, int fd);
+
+void
 websocket_monitor(struct event_base *base, int fd, struct channel *chan,
 		struct channel_user *cu);
 

@@ -85,6 +85,7 @@ ws_client_msg(int fd, short event, void *ptr) {
 	struct ws_client *wsc = ptr;
 
 	if(event != EV_READ) {
+		ws_close(wsc, fd);
 		return;
 	}
 
@@ -121,17 +122,25 @@ ws_client_msg(int fd, short event, void *ptr) {
 		success = 0;
 	}
 	if(success == 0) {
-		channel_del_connection(wsc->chan, wsc->cu);
-		evbuffer_free(wsc->buffer);
-		event_del(&wsc->ev);
-		free(wsc);
-		shutdown(fd, SHUT_RDWR);
-		close(fd);
+		ws_close(wsc, fd);
 	} else { /* re-add the event only in case of success */
 		event_set(&wsc->ev, fd, EV_READ, ws_client_msg, wsc);
 		event_base_set(wsc->base, &wsc->ev);
 		event_add(&wsc->ev, NULL);
 	}
+}
+
+/**
+ * Shuts down a client
+ */
+void
+ws_close(struct ws_client *wsc, int fd) {
+	channel_del_connection(wsc->chan, wsc->cu);
+	evbuffer_free(wsc->buffer);
+	event_del(&wsc->ev);
+	free(wsc);
+	shutdown(fd, SHUT_RDWR);
+	close(fd);
 }
 
 /**
