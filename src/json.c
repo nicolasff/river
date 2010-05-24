@@ -37,6 +37,23 @@ json_escape(const char *data, size_t len, size_t *out_len) {
 }
 
 char *
+json_wrap(const char *data, size_t data_len, const char *jsonp, size_t jsonp_len, size_t *out) {
+
+	size_t sz = jsonp_len + 1 + data_len + 4;
+	char *buffer = calloc(sz + 1, 1);
+
+	memcpy(buffer, jsonp, jsonp_len);
+	memcpy(buffer + jsonp_len, "(", 1);
+	memcpy(buffer + jsonp_len + 1, data, data_len);
+	memcpy(buffer + jsonp_len + 1 + data_len, ");\r\n", 4);
+
+	if(out) {
+		*out = sz;
+	}
+	return buffer;
+}
+
+char *
 json_msg(const char *channel, size_t channel_len,
 		const unsigned long long seq,
 		const char *data, size_t data_len,

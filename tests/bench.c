@@ -53,6 +53,10 @@ struct writer_thread {
 void
 process_message(struct reader_thread *rt, size_t sz) {
 
+	if(rt->request_count == 0) {
+		return;
+	}
+
 	rt->byte_count += sz;
 	if(rt->request_count % 10000 == 0) {
 		printf("%8d messages left (got %9d bytes so far).\n",
@@ -63,26 +67,6 @@ process_message(struct reader_thread *rt, size_t sz) {
 	rt->request_count--;
 	if(rt->request_count == 0) {
 		event_base_loopexit(rt->base, NULL);
-	}
-}
-/**
- * Called when a message is sent on the websocket channel pipe.
- */
-void
-on_websocket_message_chunk(int fd, short event, void *ptr) {
-	int ret;
-	char buffer[1024];
-
-	if(event != EV_READ) {
-		return;
-	}
-
-	ret = read(fd, buffer, sizeof(buffer));
-	if(ret > 1 && *buffer == 0) {
-		char *last = memchr(buffer + 1, 0xff, sizeof(buffer)-2);
-		if(last) {
-			process_message(ptr, last - buffer - 1);
-		}
 	}
 }
 

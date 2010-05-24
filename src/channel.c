@@ -94,13 +94,9 @@ channel_new_connection(int fd, int keep_connected, const char *jsonp, write_func
 	cu->keep_connected = keep_connected;
 
 	if(jsonp && *jsonp) {
-		char prefix[] = "(";
-		cu->jsonp_len = strlen(jsonp) + sizeof(prefix) - 1;
+		cu->jsonp_len = strlen(jsonp);
 		cu->jsonp = calloc(cu->jsonp_len + 1, 1);
-
-		memcpy(cu->jsonp, jsonp, cu->jsonp_len - (sizeof(prefix)-1));
-		memcpy(cu->jsonp + cu->jsonp_len - (sizeof(prefix)-1),
-				prefix, sizeof(prefix)-1);
+		memcpy(cu->jsonp, jsonp, cu->jsonp_len);
 	}
 
 	return cu;
@@ -173,17 +169,23 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 		struct channel_user *next = cu->next;
 		/* write message to connected user */
 		
-		int ret, total = 0, expected_len = msg->data_len;
-		char jsonp_end[] = ");\r\n";
+		int ret;
+		char *buffer;
+		size_t sz;
+
 		if(cu->jsonp) {
-			expected_len += cu->jsonp_len + sizeof(jsonp_end)-1;
-			total += cu->wfun(cu->fd, cu->jsonp, cu->jsonp_len);
+			buffer = json_wrap(msg->data, msg->data_len, cu->jsonp, cu->jsonp_len, &sz);
+		} else {
+			buffer = msg->data;
+			sz = msg->data_len;
 		}
-		total += (ret = cu->wfun(cu->fd, msg->data, msg->data_len));
+
+		ret = cu->wfun(cu->fd, buffer, sz);
 		if(cu->jsonp) {
-			total += cu->wfun(cu->fd, jsonp_end, sizeof(jsonp_end)-1);
+			free(buffer);
 		}
-		if(total != expected_len) { /* failed write */
+
+		if(ret != (int)sz) { /* failed write */
 			shutdown(cu->fd, SHUT_RDWR);
 			close(cu->fd);
 			channel_del_connection(channel, cu);
