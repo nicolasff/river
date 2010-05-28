@@ -58,7 +58,17 @@ struct http_request {
 	struct channel *channel;
 	struct channel_user *cu;
 
-	dict *get;
+	struct {
+		char *name; int name_len;
+		char *data; int data_len;
+		char *jsonp; int jsonp_len;
+		char *domain; int domain_len;
+
+		unsigned long long seq; int has_seq;
+		long keep;
+	} get;
+
+
 	struct event_base *base;
 };
 

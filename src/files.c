@@ -14,8 +14,6 @@
 static void
 file_send_iframe(struct http_request *req) {
 
-	dictEntry *de;
-
 	static char *iframe_buffer = NULL;
 	static size_t iframe_buffer_len = -1;
 
@@ -54,8 +52,8 @@ file_send_iframe(struct http_request *req) {
 
 	http_streaming_start(req->fd, 200, "OK");
 	http_streaming_chunk(req->fd, buffer_start, sizeof(buffer_start)-1);
-	if(req->get && (de = dictFind(req->get, "domain"))) {
-		http_streaming_chunk(req->fd, de->val, de->size);
+	if(req->get.domain) {
+		http_streaming_chunk(req->fd, req->get.domain, req->get.domain_len);
 	}
 	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
 
@@ -72,8 +70,6 @@ file_send_iframe(struct http_request *req) {
  */
 void
 file_send_libjs(struct http_request *req) {
-
-	dictEntry *de;
 
 	char buffer_start[] = "var comet_domain = '";
 	char buffer_domain[] = "'; var common_domain = '";
@@ -102,8 +98,8 @@ Comet = {\
 
 	/* then common domain */
 	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
-	if(req->get && (de = dictFind(req->get, "domain"))) {
-		http_streaming_chunk(req->fd, de->val, de->size);
+	if(req->get.domain) {
+		http_streaming_chunk(req->fd, req->get.domain, req->get.domain_len);
 	}
 
 	/* finally, the code itself. */

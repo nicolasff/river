@@ -30,11 +30,7 @@ ws_start(struct http_request *req) {
 		"Origin: http://%s\r\n"
 		"\r\n";
 	size_t sz;
-	dictEntry *de;
-	if((de = dictFind(req->get, "name"))) {
-		name = de->val;
-	}
-	if(!name || !req->origin_len || !req->host_len) {
+	if(!req->get.name || !req->origin_len || !req->host_len) {
 		return -1;
 	}
 
@@ -42,7 +38,7 @@ ws_start(struct http_request *req) {
 	 * In future versions, "Web Socket Protocol" will become "WebSocket Protocol"
 	 */
 
-	sz = sizeof(template) + req->origin_len + req->host_len * 2 + de->size
+	sz = sizeof(template) + req->origin_len + req->host_len * 2 + req->get.name_len
 		- (2 + 2 + 2 + 2); /* %s must be removed from the template size */
 	buffer = calloc(sz + 1, 1);
 	sprintf(buffer, template, req->origin, req->host, name, req->host);

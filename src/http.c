@@ -150,7 +150,10 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 	if(!p) return 0;
 	p++;
 
-	req->get = dictCreate(&dictTypeCopyNoneFreeAll, NULL);
+	/*req->get = dictCreate(&dictTypeCopyNoneFreeAll, NULL);*/
+	memset(&req->get, 0, sizeof(req->get));
+	req->get.keep = 1;
+
 
 	/* we have strings in the following format: at="ab=12&cd=34ø", len=11 */
 
@@ -188,7 +191,27 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 		memcpy(val, p, val_len);
 
 		/* add to the GET dictionary */
-		dictAdd(req->get, key, val, val_len);
+		if(strncmp(key, "name", 4) == 0) {
+			req->get.name = val;
+			req->get.name_len = val_len;
+		} else if(strncmp(key, "data", 4) == 0) {
+			req->get.data = val;
+			req->get.data_len = val_len;
+		} else if(strncmp(key, "jsonp", 5) == 0) {
+			req->get.jsonp = val;
+			req->get.jsonp_len = val_len;
+		} else if(strncmp(key, "domain", 6) == 0) {
+			req->get.domain = val;
+			req->get.domain_len = val_len;
+		} else if(strncmp(key, "seq", 3) == 0) {
+			req->get.seq = atol(val);
+			req->get.has_seq = 1;
+		} else if(strncmp(key, "keep", 4) == 0) {
+			req->get.keep = atol(val);
+		} else {
+			free(key);
+			free(val);
+		}
 
 		if(amp) { /* more to come */
 			p = amp + 1;

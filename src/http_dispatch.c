@@ -89,43 +89,18 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 
 	http_action ret = HTTP_KEEP_CONNECTED;
 
-	int keep_connected = 1, has_seq = 0;
-	unsigned long long seq = 0;
-	char *name = NULL;
-	char *jsonp = NULL;
-	dictEntry *de;
-
-	if(!req->get) {
-		send_empty_reply(req, 400);
-		return HTTP_DISCONNECT;
-	}
-
-	if((de = dictFind(req->get, "name"))) {
-		name = de->val;
-	}
-	if((de = dictFind(req->get, "seq"))) { /* optional */
-		seq = atol(de->val);
-		has_seq = 1;
-	}
-	if((de = dictFind(req->get, "keep"))) { /* optional */
-		keep_connected = atol(de->val);
-	}
-	if((de = dictFind(req->get, "callback"))) { /* optional */
-		jsonp = de->val;
-	}
-
-	if(!name) {
+	if(!req->get.name) {
 		send_empty_reply(req, 400);
 		return HTTP_DISCONNECT;
 	}
 
 	/* find channel */
-	if(!(req->channel = channel_find(name))) {
-		req->channel = channel_new(name);
+	if(!(req->channel = channel_find(req->get.name))) {
+		req->channel = channel_new(req->get.name);
 	}
 
 	CHANNEL_LOCK(req->channel);
-	req->cu = channel_new_connection(req->fd, keep_connected, jsonp, write_fun);
+	req->cu = channel_new_connection(req->fd, req->get.keep, req->get.jsonp, write_fun);
 	if(-1 == start_fun(req)) {
 		CHANNEL_UNLOCK(req->channel);
 		return HTTP_DISCONNECT;
@@ -139,8 +114,8 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	 **/
 
 	/* chan is locked, check if we need to catch-up */
-	if(has_seq && seq < req->channel->seq) {
-		ret = channel_catchup_user(req->channel, req->cu, seq);
+	if(req->get.has_seq && req->get.seq < req->channel->seq) {
+		ret = channel_catchup_user(req->channel, req->cu, req->get.seq);
 		/* case 1 */
 		if(ret == HTTP_DISCONNECT) {
 			free(req->cu->jsonp);
@@ -193,24 +168,13 @@ http_dispatch_publish(struct http_request *req) {
 
 	struct channel *channel;
 
-	dictEntry *de;
-	char *name = NULL, *data = NULL;
-	size_t data_len = 0;
-
-	if((de = dictFind(req->get, "name"))) {
-		name = de->val;
-	}
-	if((de = dictFind(req->get, "data"))) {
-		data = de->val;
-		data_len = de->size;
-	}
-	if(!name || !data) {
+	if(!req->get.name || !req->get.data) {
 		send_empty_reply(req, 403);
 		return HTTP_DISCONNECT;
 	}
 
 	/* find channel */
-	if(!(channel = channel_find(name))) {
+	if(!(channel = channel_find(req->get.name))) {
 		send_empty_reply(req, 200); /* pretend we just did. */
 		return HTTP_DISCONNECT;
 	}
@@ -218,7 +182,7 @@ http_dispatch_publish(struct http_request *req) {
 	send_empty_reply(req, 200);
 
 	/* send to all channel users. */
-	channel_write(channel, data, data_len);
+	channel_write(channel, req->get.data, req->get.data_len);
 
 	return HTTP_DISCONNECT;
 }

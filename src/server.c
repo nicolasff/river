@@ -136,9 +136,10 @@ worker_main(void *ptr) {
 		free(req.origin); req.origin = NULL; req.origin_len = 0;
 		free(req.path); req.path = NULL;
 
-		if(req.get) {
-			dictRelease(req.get);
-		}
+		free(req.get.name);
+		free(req.get.data);
+		free(req.get.jsonp);
+		free(req.get.domain);
 	}
 
 	return NULL;
