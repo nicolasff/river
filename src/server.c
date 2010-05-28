@@ -24,12 +24,31 @@
 #include "http.h"
 #include "websocket.h"
 
+static struct dispatcher_info di;
 
 static void
 on_accept(int fd, short event, void *ptr);
 
 static int
-update_event(struct dispatcher_info *di, int flags);
+update_event(int flags);
+
+static void
+disconnection_check(int fd, short event, void *ptr) {
+
+	(void)event;
+
+	free(ptr);
+	socket_shutdown(fd);
+}
+
+void
+watch_for_disconnection(int fd) {
+
+	struct event *ev = malloc(sizeof(struct event));
+	event_set(ev, fd, EV_READ, disconnection_check, ev);
+	event_base_set(di.base, ev);
+	event_add(ev, NULL);
+}
 
 
 void *
@@ -75,8 +94,7 @@ worker_main(void *ptr) {
 
 		/* fail, close. */
 		if(nb_read < 0) {
-			shutdown(req.fd, SHUT_RDWR);
-			close(req.fd); /* byyyee */
+			socket_shutdown(req.fd); /* byyyee */
 			continue;
 		}
 		buffer[nb_read] = 0;
@@ -91,8 +109,7 @@ worker_main(void *ptr) {
 				buffer, nb_read);
 
 		if((int)nb_parsed < nb_read - 1) {
-			shutdown(req.fd, SHUT_RDWR);
-			close(req.fd);
+			socket_shutdown(req.fd);
 			continue;
 		}
 
@@ -102,15 +119,16 @@ worker_main(void *ptr) {
 
 		switch(action) {
 			case HTTP_DISCONNECT:
-				shutdown(req.fd, SHUT_RDWR);
-				close(req.fd);
+				socket_shutdown(req.fd);
 				break;
 
 			case HTTP_WEBSOCKET_MONITOR:
 				websocket_monitor(wi->base, req.fd, req.channel, req.cu);
 				break;
 
-			case HTTP_KEEP_CONNECTED: break;
+			case HTTP_KEEP_CONNECTED:
+				watch_for_disconnection(req.fd);
+				break;
 		}
 
 		/* cleanup */
@@ -131,18 +149,16 @@ worker_main(void *ptr) {
  */
 void
 on_client_data(int fd, short event, void *ptr) {
-	struct event_callback_data *cb_data = ptr;
-	struct dispatcher_info *di = cb_data->di;
+	(void)ptr;
 
+	free(ptr);
 	if(event != EV_READ) {
-		free(cb_data);
 		return;
 	}
 
 	/* push fd into queue so that it'll be handled by a worker. */
-	queue_push(di->q, (void*)(long)fd);
-	pthread_cond_signal(&di->cond);
-	free(cb_data);
+	queue_push(di.q, (void*)(long)fd);
+	pthread_cond_signal(&di.cond);
 }
 
 /**
@@ -151,11 +167,11 @@ on_client_data(int fd, short event, void *ptr) {
 static void
 on_accept(int fd, short event, void *ptr) {
 
-	struct dispatcher_info *di = ptr;
+	(void)ptr;
 	int client_fd, ret;
+	struct event *ev;
 	struct sockaddr addr;
 	socklen_t addrlen;
-	struct event_callback_data *cb_data;
 
 	if(event != EV_READ) {
 		return;
@@ -167,52 +183,67 @@ on_accept(int fd, short event, void *ptr) {
 	if(client_fd < 1) {
 		/* failed accept, we need to stop accepting connections until we close a fd */
 		syslog(LOG_WARNING, "accept() returned %d: %m", client_fd);
-		update_event(di, 0);
+		/* printf("accept() returned %d: %s\n", client_fd, strerror(errno)); */
+		update_event(0);
 		return;
 	}
 
 	/* add read event */
-	cb_data = calloc(1, sizeof(struct event_callback_data));
-	cb_data->di = di;
-	event_set(&cb_data->ev, client_fd, EV_READ, on_client_data, cb_data);
-	ret = event_base_set(di->base, &cb_data->ev);
+	ev = malloc(sizeof(struct event));
+	event_set(ev, client_fd, EV_READ, on_client_data, ev);
+	ret = event_base_set(di.base, ev);
 	if(ret == 0) {
-		ret = event_add(&cb_data->ev, NULL);
+		ret = event_add(ev, NULL);
 		if(ret != 0) {
 			syslog(LOG_WARNING, "event_add() failed: %m");
-			free(cb_data);
-			update_event(di, 0);
+			update_event(0);
 		}
 	} else {
 		syslog(LOG_WARNING, "event_base_set() failed: %m");
-		free(cb_data);
-		update_event(di, 0);
+		update_event(0);
 	}
-	update_event(di, EV_READ | EV_PERSIST);
+	update_event(EV_READ | EV_PERSIST);
 }
 
 static int
-update_event(struct dispatcher_info *di, int flags) {
+update_event(int flags) {
 
-	struct event *ev = &di->ev;
+	struct event *ev = &di.ev;
 	struct event_base *base = ev->ev_base;
-	if(ev->ev_flags == flags) { /* no change in flags */
+
+	/* printf("allow_accept(fd=%d): %s\n", di.fd, (flags == 0 ? "NO":"YES")); */
+	if(di.ev_flags == flags) { /* no change in flags */
+		/* printf("already in that mode.\n"); */
 		return 0;
 	}
 
-	if(event_del(ev) == -1) {
-		syslog(LOG_WARNING, "event_del() failed.");
-		return -1;
+	di.ev_flags = flags;
+
+	if(flags == 0) {
+		if(event_del(ev) == -1) {
+			syslog(LOG_WARNING, "event_del() failed.");
+			return -1;
+		}
+		return 0;
 	}
-	event_set(ev, di->fd, flags, on_accept, di);
+	event_set(ev, di.fd, flags, on_accept, NULL);
 	event_base_set(base, ev);
 
 	if(event_add(ev, 0) == -1) {
 		syslog(LOG_WARNING, "event_add() failed: %m");
+		/* printf("event_add() failed: %s\n", strerror(errno)); */
+		di.ev_flags = 0;
 		return -1;
 	}
 
 	return 0;
+}
+
+void
+socket_shutdown(int fd) {
+	close(fd);
+	shutdown(fd, SHUT_RDWR);
+	update_event(EV_READ | EV_PERSIST);
 }
 
 /**
@@ -224,7 +255,6 @@ server_run(short nb_workers, const char *ip, short port) {
 	int i, ret;
 	struct event_base *base;
 	struct queue_t *q;
-	struct dispatcher_info di;
 	
 	/* setup queue */
 	q = queue_new();
@@ -235,7 +265,7 @@ server_run(short nb_workers, const char *ip, short port) {
 		return -1;
 	}
 	base = event_init();
-	event_set(&di.ev, di.fd, EV_READ | EV_PERSIST, on_accept, &di);
+	event_set(&di.ev, di.fd, EV_READ | EV_PERSIST, on_accept, NULL);
 	event_base_set(base, &di.ev);
 	ret = event_add(&di.ev, NULL);
 	if(ret != 0) {
@@ -243,6 +273,7 @@ server_run(short nb_workers, const char *ip, short port) {
 	}
 
 	/* fill in dispatcher info */
+	di.ev_flags = 0;
 	di.base = base;
 	di.q = q;
 	pthread_cond_init(&di.cond, NULL);
@@ -258,6 +289,6 @@ server_run(short nb_workers, const char *ip, short port) {
 
 	syslog(LOG_INFO, "Running.");
 
-	return event_base_dispatch(base);
+	return event_base_loop(base, 0);
 }
 

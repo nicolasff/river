@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 
 #include "http.h"
+#include "server.h"
 
 void
 http_response(int fd, int code, const char *status, const char *data, size_t len) {
@@ -58,7 +59,7 @@ http_response_ct(int fd, int code, const char *status, const char *data, size_t 
 	free(buffer);
 	if(ret != (int)sz) {
 		shutdown(fd, SHUT_RDWR);
-		close(fd);
+		socket_shutdown(fd);
 	}
 }
 
@@ -109,8 +110,7 @@ http_streaming_end(int fd) {
 
 	int ret = write(fd, "0\r\n\r\n", 5);
 	(void)ret;
-	shutdown(fd, SHUT_RDWR);
-	close(fd);
+	socket_shutdown(fd);
 }
 
 void

@@ -62,4 +62,3 @@ The following example considers the page to be at `example.com`, and the comet s
 * Find a better name, “cometd” is already taken.
 * Add automatic dead channel deletion.
 * Cleanup code.
-* Find a way to handle more connections.

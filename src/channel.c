@@ -7,6 +7,7 @@
 #include "channel.h"
 #include "http.h"
 #include "json.h"
+#include "server.h"
 
 #include <unistd.h>
 #include <pthread.h>
@@ -187,7 +188,7 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 
 		if(ret != (int)sz) { /* failed write */
 			shutdown(cu->fd, SHUT_RDWR);
-			close(cu->fd);
+			socket_shutdown(cu->fd);
 			channel_del_connection(channel, cu);
 		} else if(!cu->keep_connected) {
 			http_streaming_end(cu->fd);

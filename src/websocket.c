@@ -11,6 +11,7 @@
 
 #include "websocket.h"
 #include "channel.h"
+#include "server.h"
 
 /**
  * Called when a client connects using websocket, does the handshake.
@@ -139,8 +140,7 @@ ws_close(struct ws_client *wsc, int fd) {
 	evbuffer_free(wsc->buffer);
 	event_del(&wsc->ev);
 	free(wsc);
-	shutdown(fd, SHUT_RDWR);
-	close(fd);
+	socket_shutdown(fd);
 }
 
 /**
