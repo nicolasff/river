@@ -6,6 +6,7 @@
 
 #include "http.h"
 #include "server.h"
+#include "socket.h"
 
 int
 http_response(struct connection *cx, int code, const char *status, const char *data, size_t len) {

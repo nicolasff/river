@@ -13,6 +13,7 @@
 #include "websocket.h"
 #include "channel.h"
 #include "server.h"
+#include "socket.h"
 
 /**
  * Called when a client connects using websocket, does the handshake.

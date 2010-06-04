@@ -4,6 +4,7 @@
 
 struct event_base;
 struct queue_t;
+struct connection;
 
 struct event_callback_data {
 	struct event ev;
@@ -28,11 +29,6 @@ struct dispatcher_info {
 	struct queue_t 		*q;
 };
 
-struct connection {
-	int fd;
-	struct event *ev;
-};
-
 void
 connection_free(struct connection *cx);
 
@@ -41,6 +37,9 @@ server_run(short nb_workers, const char *ip, short port);
 
 void
 socket_shutdown(struct connection *cx);
+
+int
+update_event(int flags);
 
 #endif /* COMET_SERVER_H */
 

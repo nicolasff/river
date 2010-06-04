@@ -28,35 +28,13 @@
 extern char flash_xd[];
 extern int flash_xd_len;
 
-static struct dispatcher_info di;
+struct dispatcher_info di;
 
 static void
 on_accept(int fd, short event, void *ptr);
 
-static int
+int
 update_event(int flags);
-
-static void
-disconnection_check(int fd, short event, void *ptr) {
-
-	(void)event;
-	(void)fd;
-
-	struct connection *cx = ptr;
-
-	update_event(EV_READ | EV_PERSIST);
-
-	if(-1 == close(cx->fd)) {
-		return;
-	}
-	if(cx->ev) {
-		printf("event_del: cx->ev=%p\n", cx->ev);
-		event_del(cx->ev);
-		free(cx->ev);
-		cx->ev = NULL;
-	}
-	/* connection_free(cx); */
-}
 
 void
 connection_free(struct connection *cx) {
@@ -64,18 +42,8 @@ connection_free(struct connection *cx) {
 	/* printf("connection_free: cx=%p, cx->ev=%p\n", cx, cx->ev); */
 	/* printf("disconnecting socket %d\n", cx->fd); */
 
-	disconnection_check(cx->fd, EV_READ, cx);
+	cx_is_broken(cx->fd, EV_READ, cx);
 	free(cx);
-}
-
-void
-watch_for_disconnection(struct connection *cx) {
-
-	cx->ev = malloc(sizeof(struct event));
-	event_set(cx->ev, cx->fd, EV_READ, disconnection_check, cx);
-	event_base_set(di.base, cx->ev);
-	event_add(cx->ev, NULL);
-	/* printf("cx = %p (fd=%d): ev monitored.\n", cx, cx->fd); */
 }
 
 
@@ -169,7 +137,7 @@ worker_main(void *ptr) {
 				break;
 
 			case HTTP_KEEP_CONNECTED:
-				watch_for_disconnection(req.cx);
+				cx_monitor(req.cx);
 				break;
 		}
 
@@ -250,7 +218,7 @@ on_accept(int fd, short event, void *ptr) {
 	update_event(EV_READ | EV_PERSIST);
 }
 
-static int
+int
 update_event(int flags) {
 
 	struct event *ev = &di.ev;
@@ -289,7 +257,7 @@ socket_shutdown(struct connection *cx) {
 	/* printf("socket_shutdown: cx=%p, cx->ev=%p\n", cx, cx->ev); */
 	if(cx->ev) {
 		// event_active(cx->ev, cx->fd, EV_READ);
-		disconnection_check(cx->fd, EV_READ, cx);
+		cx_is_broken(cx->fd, EV_READ, cx);
 	} else {
 
 		/* printf("closing fd=%d\n", cx->fd); */

@@ -1,4 +1,5 @@
 #include "socket.h"
+#include "server.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -7,6 +8,12 @@
 #include <errno.h>
 #include <syslog.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <event.h>
+#include <unistd.h>
+
+extern struct dispatcher_info di;
 
 /**
  * Sets up a non-blocking socket
@@ -63,5 +70,39 @@ socket_setup(const char *ip, short port) {
 
 	/* there you go, ready to accept! */
 	return fd;
+}
+
+
+
+void
+cx_monitor(struct connection *cx) {
+
+	cx->ev = malloc(sizeof(struct event));
+	event_set(cx->ev, cx->fd, EV_READ, cx_is_broken, cx);
+	event_base_set(di.base, cx->ev);
+	event_add(cx->ev, NULL);
+	/* printf("cx = %p (fd=%d): ev monitored.\n", cx, cx->fd); */
+}
+
+void
+cx_is_broken(int fd, short event, void *ptr) {
+
+	(void)event;
+	(void)fd;
+
+	struct connection *cx = ptr;
+
+	update_event(EV_READ | EV_PERSIST);
+
+	if(-1 == close(cx->fd)) {
+		return;
+	}
+	if(cx->ev) {
+		printf("event_del: cx->ev=%p\n", cx->ev);
+		event_del(cx->ev);
+		free(cx->ev);
+		cx->ev = NULL;
+	}
+	/* connection_free(cx); */
 }
 
