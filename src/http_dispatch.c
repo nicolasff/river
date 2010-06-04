@@ -15,7 +15,6 @@
 #include "files.h"
 #include "channel.h"
 #include "server.h"
-#include "message.h"
 #include "http.h"
 #include "dict.h"
 #include "conf.h"
