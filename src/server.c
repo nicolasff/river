@@ -50,7 +50,7 @@ disconnection_check(int fd, short event, void *ptr) {
 		return;
 	}
 	if(cx->ev) {
-		/* printf("event_del: cx->ev=%p\n", cx->ev); */
+		printf("event_del: cx->ev=%p\n", cx->ev);
 		event_del(cx->ev);
 		free(cx->ev);
 		cx->ev = NULL;

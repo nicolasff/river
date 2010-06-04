@@ -73,7 +73,7 @@ on_client_too_old(int fd, short event, void *arg) {
 	CHANNEL_LOCK(ut->channel);
 	channel_del_connection(ut->channel, ut->cu);
 	CHANNEL_UNLOCK(ut->channel);
-	free(ut->cu);
+	free(ut->cu); /* TODO: check this line, there could be a double-free here. */
 	free(ut);
 }
 
