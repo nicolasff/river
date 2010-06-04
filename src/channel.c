@@ -188,8 +188,6 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 		}
 
 		if(ret != (int)sz) { /* failed write */
-			/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
-			socket_shutdown(cu->cx);
 			printf("failed write on %p\n", cu);
 			channel_del_connection(channel, cu);
 		} else if(!cu->keep_connected) {

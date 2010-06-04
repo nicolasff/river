@@ -39,8 +39,8 @@ update_event(int flags);
 void
 connection_free(struct connection *cx) {
 
-	/* printf("connection_free: cx=%p, cx->ev=%p\n", cx, cx->ev); */
-	/* printf("disconnecting socket %d\n", cx->fd); */
+	printf("connection_free: cx=%p, cx->ev=%p\n", cx, cx->ev);
+	printf("disconnecting socket %d\n", cx->fd);
 
 	cx_is_broken(cx->fd, EV_READ, cx);
 	free(cx);
@@ -85,6 +85,7 @@ worker_main(void *ptr) {
 		}
 		/* we can read data from the client, now. */
 		req.cx = calloc(sizeof(struct connection), 1);
+		printf("req.cx=%p\n", req.cx);
 		req.cx->fd = (int)(long)raw;
 
 		size_t len = sizeof(buffer), nb_parsed;

@@ -81,7 +81,7 @@ cx_monitor(struct connection *cx) {
 	event_set(cx->ev, cx->fd, EV_READ, cx_is_broken, cx);
 	event_base_set(di.base, cx->ev);
 	event_add(cx->ev, NULL);
-	/* printf("cx = %p (fd=%d): ev monitored.\n", cx, cx->fd); */
+	printf("cx = %p (fd=%d): ev monitored.\n", cx, cx->fd);
 }
 
 void
