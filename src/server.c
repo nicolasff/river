@@ -42,12 +42,8 @@ disconnection_check(int fd, short event, void *ptr) {
 
 	update_event(EV_READ | EV_PERSIST);
 
-	if(-1 == close(cx->fd)) {
-		return;
-	}
-	if(-1 == shutdown(cx->fd, SHUT_RDWR)) {
-		return;
-	}
+	close(cx->fd);
+	shutdown(cx->fd, SHUT_RDWR);
 	if(cx->ev) {
 		/* printf("event_del: cx->ev=%p\n", cx->ev); */
 		event_del(cx->ev);
@@ -74,7 +70,7 @@ watch_for_disconnection(struct connection *cx) {
 	event_set(cx->ev, cx->fd, EV_READ, disconnection_check, cx);
 	event_base_set(di.base, cx->ev);
 	event_add(cx->ev, NULL);
-	/* printf("cx = %p: ev monitored.\n", cx); */
+	/* printf("cx = %p (fd=%d): ev monitored.\n", cx, cx->fd); */
 }
 
 
@@ -191,7 +187,6 @@ on_client_data(int fd, short event, void *ptr) {
 	if(event != EV_READ) {
 		return;
 	}
-	/* printf("client data!\n"); */
 
 	/* push fd into queue so that it'll be handled by a worker. */
 	queue_push(di.q, (void*)(long)fd);
@@ -228,7 +223,7 @@ on_accept(int fd, short event, void *ptr) {
 	}
 
 	/* add read event */
-	ev = malloc(sizeof(struct event));
+	ev = calloc(sizeof(struct event), 1);
 	event_set(ev, client_fd, EV_READ, on_client_data, ev);
 	ret = event_base_set(di.base, ev);
 	if(ret == 0) {
