@@ -42,8 +42,9 @@ disconnection_check(int fd, short event, void *ptr) {
 
 	update_event(EV_READ | EV_PERSIST);
 
-	close(cx->fd);
-	shutdown(cx->fd, SHUT_RDWR);
+	if(-1 == close(cx->fd)) {
+		return;
+	}
 	if(cx->ev) {
 		/* printf("event_del: cx->ev=%p\n", cx->ev); */
 		event_del(cx->ev);
