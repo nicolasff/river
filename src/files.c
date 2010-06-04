@@ -68,7 +68,7 @@ file_send_iframe(struct http_request *req) {
 /**
  * Send Javascript library
  */
-void
+static void
 file_send_libjs(struct http_request *req) {
 
 	char buffer_start[] = "var comet_domain = '";
@@ -107,18 +107,19 @@ Comet = {\
 	http_streaming_end(req->cx);
 }
 
+const char flash_xd[] = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
+	"<cross-domain-policy>"
+	"<allow-access-from domain=\"*\" />"
+	"</cross-domain-policy>\r\n";
+const int flash_xd_len = sizeof(flash_xd) - 1;
+
 /**
  * Send crossdomain.xml file to Adobe Flash client
  */
 int
-file_send_flash_crossdomain(struct http_request *req) {
+file_send_flash_crossdomain(struct connection *cx) {
 
-	const char crossdomain[] = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
-		"<cross-domain-policy>"
-		"<allow-access-from domain=\"*\" />"
-		"</cross-domain-policy>\r\n";
-
-	return http_response_ct(req->cx, 200, "OK", crossdomain, sizeof(crossdomain)-1,
+	return http_response_ct(cx, 200, "OK", flash_xd, sizeof(flash_xd)-1,
 			"application/xml");
 }
 
@@ -130,7 +131,7 @@ file_send(struct http_request *req) {
 	} else if(req->path_len == 7 && strncmp("/lib.js", req->path, req->path_len) == 0) {
 		file_send_libjs(req);
 	} else if(req->path_len == 16 && strncmp("/crossdomain.xml", req->path, req->path_len) == 0) {
-		file_send_flash_crossdomain(req);
+		file_send_flash_crossdomain(req->cx);
 	} else {
 		return -1;
 	}

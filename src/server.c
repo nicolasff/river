@@ -23,6 +23,10 @@
 #include "http_dispatch.h"
 #include "http.h"
 #include "websocket.h"
+#include "files.h"
+
+extern char flash_xd[];
+extern int flash_xd_len;
 
 static struct dispatcher_info di;
 
@@ -96,6 +100,7 @@ worker_main(void *ptr) {
 	settings.on_header_value = http_parser_on_header_value;
 
 	while(1) {
+		http_action action;
 		pthread_mutex_t mutex; /* mutex used in pthread_cond_wait */
 		char buffer[64*1024]; 
 		struct http_request req;
@@ -114,8 +119,6 @@ worker_main(void *ptr) {
 		req.cx = calloc(sizeof(struct connection), 1);
 		req.cx->fd = (int)(long)raw;
 
-		// req.fd = (int)(long)raw;
-
 		size_t len = sizeof(buffer), nb_parsed;
 		int nb_read;
 		nb_read = recv(req.cx->fd, buffer, len, 0);
@@ -128,25 +131,32 @@ worker_main(void *ptr) {
 		}
 		buffer[nb_read] = 0;
 
+		/* special case! check if we've just received a request from a Flash client. */
+		if(nb_read == 23 &&
+			memcmp(buffer, "<policy-file-request/>", 23) == 0) {
+			int ret = write(req.cx->fd, flash_xd, flash_xd_len-1);
+			(void)ret;
+			action = HTTP_DISCONNECT;
+		} else {
+			/* parse data using @ry’s http-parser library.
+			 * → http://github.com/ry/http-parser/
+			 */
+			http_parser_init(&parser, HTTP_REQUEST);
+			parser.data = &req;
+			nb_parsed = http_parser_execute(&parser, settings,
+					buffer, nb_read);
 
-		/* parse data using @ry’s http-parser library.
-		 * → http://github.com/ry/http-parser/
-		 */
-		http_parser_init(&parser, HTTP_REQUEST);
-		parser.data = &req;
-		nb_parsed = http_parser_execute(&parser, settings,
-				buffer, nb_read);
+			if((int)nb_parsed < nb_read - 1) {
+				/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
+				socket_shutdown(req.cx);
+				continue;
+			}
 
-		if((int)nb_parsed < nb_read - 1) {
-			/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
-			socket_shutdown(req.cx);
-			continue;
+			/* dispatch the client depending on the URL path */
+			req.base = wi->base;
+			/* printf("going to dispatch...\n"); */
+			action = http_dispatch(&req);
 		}
-
-		/* dispatch the client depending on the URL path */
-		req.base = wi->base;
-		/* printf("going to dispatch...\n"); */
-		http_action action = http_dispatch(&req);
 
 		switch(action) {
 			case HTTP_DISCONNECT:
