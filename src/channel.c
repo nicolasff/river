@@ -86,11 +86,11 @@ channel_free(struct channel * p) {
 }
 
 struct channel_user *
-channel_new_connection(int fd, int keep_connected, const char *jsonp, write_function wfun) {
+channel_new_connection(struct connection *cx, int keep_connected, const char *jsonp, write_function wfun) {
 
 	struct channel_user *cu = calloc(1, sizeof(struct channel_user));
 	cu->wfun = wfun;
-	cu->fd = fd;
+	cu->cx = cx;
 	cu->free_on_remove = 1;
 	cu->keep_connected = keep_connected;
 
@@ -169,7 +169,7 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 	for(cu = channel->user_list; cu; ) {
 		struct channel_user *next = cu->next;
 		/* write message to connected user */
-		
+
 		int ret;
 		char *buffer;
 		size_t sz;
@@ -181,17 +181,19 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 			sz = msg->data_len;
 		}
 
-		ret = cu->wfun(cu->fd, buffer, sz);
+		ret = cu->wfun(cu->cx, buffer, sz);
 		if(cu->jsonp) {
 			free(buffer);
 		}
 
 		if(ret != (int)sz) { /* failed write */
-			shutdown(cu->fd, SHUT_RDWR);
-			socket_shutdown(cu->fd);
+			/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
+			socket_shutdown(cu->cx);
 			channel_del_connection(channel, cu);
 		} else if(!cu->keep_connected) {
-			http_streaming_end(cu->fd);
+			http_streaming_end(cu->cx);
+			/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
+			socket_shutdown(cu->cx);
 			channel_del_connection(channel, cu);
 		}
 		cu = next;
@@ -206,6 +208,7 @@ channel_catchup_user(struct channel *channel, struct channel_user *cu, unsigned 
 	int pos, first, last, ret, sent_data = 0;
 	int success = 1, found = 0;
 
+	/* printf("catch-up: seq=%llu, keep_connected=%d\n", seq, cu->keep_connected); */
 	last = LOG_CUR(channel);
 	first = pos = LOG_PREV(last);
 
@@ -229,7 +232,7 @@ channel_catchup_user(struct channel *channel, struct channel_user *cu, unsigned 
 
 		msg = &channel->log_buffer[pos];
 
-		ret = cu->wfun(cu->fd, msg->data, msg->data_len);
+		ret = cu->wfun(cu->cx, msg->data, msg->data_len);
 		if(ret != (int)msg->data_len) { /* failed write */
 			success = 0;
 			break;
@@ -242,7 +245,7 @@ channel_catchup_user(struct channel *channel, struct channel_user *cu, unsigned 
 		return HTTP_DISCONNECT;
 	}
 	if(sent_data && (!cu->keep_connected)) {
-		http_streaming_end(cu->fd);
+		http_streaming_end(cu->cx);
 		return HTTP_DISCONNECT;
 	}
 	return HTTP_KEEP_CONNECTED;

@@ -50,18 +50,18 @@ file_send_iframe(struct http_request *req) {
 	char buffer_domain[] = "\";\n";
 	char buffer_end[] = "</script></body></html>\n";
 
-	http_streaming_start(req->fd, 200, "OK");
-	http_streaming_chunk(req->fd, buffer_start, sizeof(buffer_start)-1);
+	http_streaming_start(req->cx, 200, "OK");
+	http_streaming_chunk(req->cx, buffer_start, sizeof(buffer_start)-1);
 	if(req->get.domain) {
-		http_streaming_chunk(req->fd, req->get.domain, req->get.domain_len);
+		http_streaming_chunk(req->cx, req->get.domain, req->get.domain_len);
 	}
-	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
+	http_streaming_chunk(req->cx, buffer_domain, sizeof(buffer_domain)-1);
 
 	/* iframe.js */
-	http_streaming_chunk(req->fd, iframe_buffer, iframe_buffer_len);
+	http_streaming_chunk(req->cx, iframe_buffer, iframe_buffer_len);
 
-	http_streaming_chunk(req->fd, buffer_end, sizeof(buffer_end)-1);
-	http_streaming_end(req->fd);
+	http_streaming_chunk(req->cx, buffer_end, sizeof(buffer_end)-1);
+	http_streaming_end(req->cx);
 }
 
 
@@ -88,29 +88,29 @@ Comet = {\
 	}\
 };";
 
-	http_streaming_start_ct(req->fd, 200, "OK", "text/javascript");
-	http_streaming_chunk(req->fd, buffer_start, sizeof(buffer_start)-1);
+	http_streaming_start_ct(req->cx, 200, "OK", "text/javascript");
+	http_streaming_chunk(req->cx, buffer_start, sizeof(buffer_start)-1);
 
 	/* then current host */
 	if(req->host) {
-		http_streaming_chunk(req->fd, req->host, req->host_len);
+		http_streaming_chunk(req->cx, req->host, req->host_len);
 	}
 
 	/* then common domain */
-	http_streaming_chunk(req->fd, buffer_domain, sizeof(buffer_domain)-1);
+	http_streaming_chunk(req->cx, buffer_domain, sizeof(buffer_domain)-1);
 	if(req->get.domain) {
-		http_streaming_chunk(req->fd, req->get.domain, req->get.domain_len);
+		http_streaming_chunk(req->cx, req->get.domain, req->get.domain_len);
 	}
 
 	/* finally, the code itself. */
-	http_streaming_chunk(req->fd, buffer_js, sizeof(buffer_js)-1);
-	http_streaming_end(req->fd);
+	http_streaming_chunk(req->cx, buffer_js, sizeof(buffer_js)-1);
+	http_streaming_end(req->cx);
 }
 
 /**
  * Send crossdomain.xml file to Adobe Flash client
  */
-void
+int
 file_send_flash_crossdomain(struct http_request *req) {
 
 	const char crossdomain[] = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
@@ -118,7 +118,7 @@ file_send_flash_crossdomain(struct http_request *req) {
 		"<allow-access-from domain=\"*\" />"
 		"</cross-domain-policy>\r\n";
 
-	http_response_ct(req->fd, 200, "OK", crossdomain, sizeof(crossdomain)-1,
+	return http_response_ct(req->cx, 200, "OK", crossdomain, sizeof(crossdomain)-1,
 			"application/xml");
 }
 

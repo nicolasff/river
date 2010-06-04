@@ -3,22 +3,23 @@
 
 #include "http-parser/http_parser.h"
 #include "dict.h"
+#include "server.h"
 
 struct event_base;
 struct http_request;
 
 typedef enum {HTTP_DISCONNECT, HTTP_KEEP_CONNECTED, HTTP_WEBSOCKET_MONITOR} http_action;
 
-typedef int (*write_function)(int fd, const char *data, size_t len);
+typedef int (*write_function)(struct connection *cx, const char *data, size_t len);
 typedef int (*start_function)(struct http_request *req);
 
 
 /* Send an HTTP response */
-void
-http_response(int fd, int code, const char *status, const char *data, size_t len);
+int
+http_response(struct connection *cx, int code, const char *status, const char *data, size_t len);
 
-void
-http_response_ct(int fd, int code, const char *status, const char *data, size_t len, const char *content_type);
+int
+http_response_ct(struct connection *cx, int code, const char *status, const char *data, size_t len, const char *content_type);
 
 /* Send an empty reply. */
 void
@@ -26,23 +27,24 @@ send_empty_reply(struct http_request *req, int error);
 
 /* Start streaming with chunked encoding */
 void
-http_streaming_start(int fd, int code, const char *status);
+http_streaming_start(struct connection *cx, int code, const char *status);
 void
-http_streaming_start_ct(int fd, int code, const char *status, const char *content_type);
+http_streaming_start_ct(struct connection *cx, int code, const char *status, const char *content_type);
 
 /* Send data chunk */
 int
-http_streaming_chunk(int fd, const char *data, size_t len);
+http_streaming_chunk(struct connection *cx, const char *data, size_t len);
 
 /* Stop streaming, close connection. */
 void
-http_streaming_end(int fd);
+http_streaming_end(struct connection *cx);
 
 
 
 struct http_request {
 
 	int fd;
+	struct connection *cx;
 
 	char *path;
 	size_t path_len;

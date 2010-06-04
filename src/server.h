@@ -28,11 +28,19 @@ struct dispatcher_info {
 	struct queue_t 		*q;
 };
 
+struct connection {
+	int fd;
+	struct event *ev;
+};
+
+void
+connection_free(struct connection *cx);
+
 int
 server_run(short nb_workers, const char *ip, short port);
 
 void
-socket_shutdown(int fd);
+socket_shutdown(struct connection *cx);
 
 #endif /* COMET_SERVER_H */
 

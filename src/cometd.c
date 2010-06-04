@@ -15,7 +15,7 @@ main(int argc, char *argv[]) {
 	int ret;
 
 	struct conf *cfg;
-	
+
 	if(argc == 2) {
 		cfg = conf_read(argv[1]);
 	} else {

@@ -1,5 +1,5 @@
 OUT=bench catchup websocket
-CFLAGS=-O0 -ggdb -Wall -Wextra
+CFLAGS=-O3 -ggdb -Wall -Wextra
 LDFLAGS=-levent -lpthread
 
 all: $(OUT) Makefile

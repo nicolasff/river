@@ -36,18 +36,45 @@ static void
 disconnection_check(int fd, short event, void *ptr) {
 
 	(void)event;
+	(void)fd;
 
-	free(ptr);
-	socket_shutdown(fd);
+	struct connection *cx = ptr;
+
+	update_event(EV_READ | EV_PERSIST);
+
+	if(-1 == close(cx->fd)) {
+		return;
+	}
+	if(-1 == shutdown(cx->fd, SHUT_RDWR)) {
+		return;
+	}
+	if(cx->ev) {
+		/* printf("event_del: cx->ev=%p\n", cx->ev); */
+		event_del(cx->ev);
+		free(cx->ev);
+		cx->ev = NULL;
+	}
+	/* connection_free(cx); */
 }
 
 void
-watch_for_disconnection(int fd) {
+connection_free(struct connection *cx) {
 
-	struct event *ev = malloc(sizeof(struct event));
-	event_set(ev, fd, EV_READ, disconnection_check, ev);
-	event_base_set(di.base, ev);
-	event_add(ev, NULL);
+	/* printf("connection_free: cx=%p, cx->ev=%p\n", cx, cx->ev); */
+	/* printf("disconnecting socket %d\n", cx->fd); */
+
+	disconnection_check(cx->fd, EV_READ, cx);
+	free(cx);
+}
+
+void
+watch_for_disconnection(struct connection *cx) {
+
+	cx->ev = malloc(sizeof(struct event));
+	event_set(cx->ev, cx->fd, EV_READ, disconnection_check, cx);
+	event_base_set(di.base, cx->ev);
+	event_add(cx->ev, NULL);
+	/* printf("cx = %p: ev monitored.\n", cx); */
 }
 
 
@@ -87,14 +114,19 @@ worker_main(void *ptr) {
 			continue;
 		}
 		/* we can read data from the client, now. */
-		req.fd = (int)(long)raw;
+		req.cx = calloc(sizeof(struct connection), 1);
+		req.cx->fd = (int)(long)raw;
+
+		// req.fd = (int)(long)raw;
+
 		size_t len = sizeof(buffer), nb_parsed;
 		int nb_read;
-		nb_read = recv(req.fd, buffer, len, 0);
+		nb_read = recv(req.cx->fd, buffer, len, 0);
 
 		/* fail, close. */
 		if(nb_read < 0) {
-			socket_shutdown(req.fd); /* byyyee */
+			/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
+			socket_shutdown(req.cx); /* byyyee */
 			continue;
 		}
 		buffer[nb_read] = 0;
@@ -109,25 +141,28 @@ worker_main(void *ptr) {
 				buffer, nb_read);
 
 		if((int)nb_parsed < nb_read - 1) {
-			socket_shutdown(req.fd);
+			/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
+			socket_shutdown(req.cx);
 			continue;
 		}
 
 		/* dispatch the client depending on the URL path */
 		req.base = wi->base;
+		/* printf("going to dispatch...\n"); */
 		http_action action = http_dispatch(&req);
 
 		switch(action) {
 			case HTTP_DISCONNECT:
-				socket_shutdown(req.fd);
+				/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
+				socket_shutdown(req.cx);
 				break;
 
 			case HTTP_WEBSOCKET_MONITOR:
-				websocket_monitor(wi->base, req.fd, req.channel, req.cu);
+				websocket_monitor(wi->base, req.cx, req.channel, req.cu);
 				break;
 
 			case HTTP_KEEP_CONNECTED:
-				watch_for_disconnection(req.fd);
+				watch_for_disconnection(req.cx);
 				break;
 		}
 
@@ -156,6 +191,7 @@ on_client_data(int fd, short event, void *ptr) {
 	if(event != EV_READ) {
 		return;
 	}
+	/* printf("client data!\n"); */
 
 	/* push fd into queue so that it'll be handled by a worker. */
 	queue_push(di.q, (void*)(long)fd);
@@ -180,7 +216,9 @@ on_accept(int fd, short event, void *ptr) {
 
 	/* accept connection */
 	addrlen = sizeof(addr);
+	/* printf("\n\naccepting...\n"); */
 	client_fd = accept(fd, &addr, &addrlen);
+	/* printf("accept returned %d\n", client_fd); */
 	if(client_fd < 1) {
 		/* failed accept, we need to stop accepting connections until we close a fd */
 		syslog(LOG_WARNING, "accept() returned %d: %m", client_fd);
@@ -241,10 +279,20 @@ update_event(int flags) {
 }
 
 void
-socket_shutdown(int fd) {
-	close(fd);
-	shutdown(fd, SHUT_RDWR);
-	update_event(EV_READ | EV_PERSIST);
+socket_shutdown(struct connection *cx) {
+	/* printf("socket_shutdown: cx=%p, cx->ev=%p\n", cx, cx->ev); */
+	if(cx->ev) {
+		// event_active(cx->ev, cx->fd, EV_READ);
+		disconnection_check(cx->fd, EV_READ, cx);
+	} else {
+
+		/* printf("closing fd=%d\n", cx->fd); */
+		close(cx->fd);
+		shutdown(cx->fd, SHUT_RDWR);
+		update_event(EV_READ | EV_PERSIST);
+	}
+
+	connection_free(cx);
 }
 
 /**
@@ -256,7 +304,7 @@ server_run(short nb_workers, const char *ip, short port) {
 	int i, ret;
 	struct event_base *base;
 	struct queue_t *q;
-	
+
 	/* setup queue */
 	q = queue_new();
 

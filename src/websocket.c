@@ -42,7 +42,7 @@ ws_start(struct http_request *req) {
 		- (2 + 2 + 2 + 2); /* %s must be removed from the template size */
 	buffer = calloc(sz + 1, 1);
 	sprintf(buffer, template, req->origin, req->host, name, req->host);
-	ret = write(req->fd, buffer, sz);
+	ret = write(req->cx->fd, buffer, sz);
 	free(buffer);
 
 	return ret;
@@ -52,7 +52,7 @@ ws_start(struct http_request *req) {
  * Sends a message to a websocket client, by a write on a channel
  */
 int
-ws_write(int fd, const char *buf, size_t len) {
+ws_write(struct connection *cx, const char *buf, size_t len) {
 
 	int ret;
 
@@ -62,7 +62,7 @@ ws_write(int fd, const char *buf, size_t len) {
 	tmp[len+1] = 0xff;
 	memcpy(tmp+1, buf, len);
 
-	ret = write(fd, tmp, len+2);
+	ret = write(cx->fd, tmp, len+2);
 
 	if(ret != (int)len+2) {
 		free(tmp);
@@ -82,7 +82,7 @@ ws_client_msg(int fd, short event, void *ptr) {
 	struct ws_client *wsc = ptr;
 
 	if(event != EV_READ) {
-		ws_close(wsc, fd);
+		ws_close(wsc, wsc->cu->cx);
 		return;
 	}
 
@@ -119,7 +119,7 @@ ws_client_msg(int fd, short event, void *ptr) {
 		success = 0;
 	}
 	if(success == 0) {
-		ws_close(wsc, fd);
+		ws_close(wsc, wsc->cu->cx);
 	} else { /* re-add the event only in case of success */
 		event_set(&wsc->ev, fd, EV_READ, ws_client_msg, wsc);
 		event_base_set(wsc->base, &wsc->ev);
@@ -131,12 +131,13 @@ ws_client_msg(int fd, short event, void *ptr) {
  * Shuts down a client
  */
 void
-ws_close(struct ws_client *wsc, int fd) {
+ws_close(struct ws_client *wsc, struct connection *cx) {
 	channel_del_connection(wsc->chan, wsc->cu);
 	evbuffer_free(wsc->buffer);
 	event_del(&wsc->ev);
 	free(wsc);
-	socket_shutdown(fd);
+	/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
+	socket_shutdown(cx);
 }
 
 /**
@@ -144,7 +145,7 @@ ws_close(struct ws_client *wsc, int fd) {
  * Creates an event on possible read(2), and add it.
  */
 void
-websocket_monitor(struct event_base *base, int fd, struct channel *chan,
+websocket_monitor(struct event_base *base, struct connection *cx, struct channel *chan,
 		struct channel_user *cu) {
 
 	struct ws_client *wsc = calloc(1, sizeof(struct ws_client));
@@ -154,11 +155,11 @@ websocket_monitor(struct event_base *base, int fd, struct channel *chan,
 	wsc->cu = cu;
 
 	/* set socket as non-blocking. */
-	if (0 != fcntl(fd, F_SETFD, O_NONBLOCK)) {
+	if (0 != fcntl(cx->fd, F_SETFD, O_NONBLOCK)) {
 		syslog(LOG_WARNING, "fcntl error: %m\n");
 	}
 
-	event_set(&wsc->ev, fd, EV_READ, ws_client_msg, wsc);
+	event_set(&wsc->ev, cx->fd, EV_READ, ws_client_msg, wsc);
 	event_base_set(wsc->base, &wsc->ev);
 	event_add(&wsc->ev, NULL);
 }

@@ -33,7 +33,7 @@ conf_read(const char *filename) {
 		if(*ret != 0) {
 			ret[strlen(ret)-1] = 0; /* remove new line */
 		}
-		
+
 		if(strncmp(ret, "ip ", 3) == 0) {
 			conf->ip = strdup(ret + 3);
 		} else if(strncmp(ret, "port ", 5) == 0) {

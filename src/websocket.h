@@ -22,13 +22,13 @@ int
 ws_start(struct http_request *req);
 
 int
-ws_write(int fd, const char *buf, size_t len);
+ws_write(struct connection *cx, const char *buf, size_t len);
 
 void
-ws_close(struct ws_client *wsc, int fd);
+ws_close(struct ws_client *wsc, struct connection *cx);
 
 void
-websocket_monitor(struct event_base *base, int fd, struct channel *chan,
+websocket_monitor(struct event_base *base, struct connection *cx, struct channel *chan,
 		struct channel_user *cu);
 
 #endif /* WEBSOCKET_H */

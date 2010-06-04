@@ -31,7 +31,7 @@ http_init(struct conf *cfg) {
 
 static int
 start_fun_http(struct http_request *req) {
-	http_streaming_start(req->fd, 200, "OK");
+	http_streaming_start(req->cx, 200, "OK");
 	return 0;
 }
 
@@ -68,7 +68,7 @@ on_client_too_old(int fd, short event, void *arg) {
 		return;
 	}
 	/* disconnect user */
-	http_streaming_end(ut->cu->fd);
+	http_streaming_end(ut->cu->cx);
 
 	/* remove from channel */
 	CHANNEL_LOCK(ut->channel);
@@ -88,6 +88,7 @@ http_action
 http_dispatch_read(struct http_request *req, start_function start_fun, write_function write_fun) {
 
 	http_action ret = HTTP_KEEP_CONNECTED;
+	/* printf("read!\n"); */
 
 	if(!req->get.name) {
 		send_empty_reply(req, 400);
@@ -99,8 +100,10 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 		req->channel = channel_new(req->get.name);
 	}
 
+	/* printf("locking channel...\n"); */
 	CHANNEL_LOCK(req->channel);
-	req->cu = channel_new_connection(req->fd, req->get.keep, req->get.jsonp, write_fun);
+	/* printf("done.\n"); */
+	req->cu = channel_new_connection(req->cx, req->get.keep, req->get.jsonp, write_fun);
 	if(-1 == start_fun(req)) {
 		CHANNEL_UNLOCK(req->channel);
 		return HTTP_DISCONNECT;
@@ -114,15 +117,19 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	 **/
 
 	/* chan is locked, check if we need to catch-up */
+	/* printf("req->has_seq = %d, req->seq=%llu, channel->seq=%llu\n", req->get.has_seq, req->get.seq, req->channel->seq); */
 	if(req->get.has_seq && req->get.seq < req->channel->seq) {
+		/* printf("catch-up\n"); */
 		ret = channel_catchup_user(req->channel, req->cu, req->get.seq);
 		/* case 1 */
 		if(ret == HTTP_DISCONNECT) {
+			/* printf("disconnect\n"); */
 			free(req->cu->jsonp);
 			free(req->cu);
 			CHANNEL_UNLOCK(req->channel);
 			return HTTP_DISCONNECT;
 		} else {
+			/* printf("stay connected\n"); */
 			/* case 2*/
 		}
 	} else {
@@ -178,6 +185,7 @@ http_dispatch_publish(struct http_request *req) {
 		send_empty_reply(req, 200); /* pretend we just did. */
 		return HTTP_DISCONNECT;
 	}
+	/* printf("here\n"); */
 
 	send_empty_reply(req, 200);
 

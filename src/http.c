@@ -7,9 +7,9 @@
 #include "http.h"
 #include "server.h"
 
-void
-http_response(int fd, int code, const char *status, const char *data, size_t len) {
-	http_response_ct(fd, code, status, data, len, "text/html");
+int
+http_response(struct connection *cx, int code, const char *status, const char *data, size_t len) {
+	return http_response_ct(cx, code, status, data, len, "text/html");
 }
 static int
 hex_length(unsigned int i) {
@@ -37,9 +37,9 @@ integer_length(int i) {
     return sz;
 }
 
-void
-http_response_ct(int fd, int code, const char *status, const char *data, size_t len, const char *content_type) {
-	
+int
+http_response_ct(struct connection *cx, int code, const char *status, const char *data, size_t len, const char *content_type) {
+
 	int ret;
 	size_t sz;
 	char *buffer;
@@ -55,20 +55,17 @@ http_response_ct(int fd, int code, const char *status, const char *data, size_t 
 	ret = sprintf(buffer, template, code, status, content_type, len);
 	memcpy(buffer + ret, data, len);
 
-	ret = write(fd, buffer, sz);
+	ret = write(cx->fd, buffer, sz);
 	free(buffer);
-	if(ret != (int)sz) {
-		shutdown(fd, SHUT_RDWR);
-		socket_shutdown(fd);
-	}
+	return ret;
 }
 
 void
-http_streaming_start(int fd, int code, const char *status) {
-	http_streaming_start_ct(fd, code, status, "text/html");
+http_streaming_start(struct connection *cx, int code, const char *status) {
+	http_streaming_start_ct(cx, code, status, "text/html");
 }
 void
-http_streaming_start_ct(int fd, int code, const char *status, const char *content_type) {
+http_streaming_start_ct(struct connection *cx, int code, const char *status, const char *content_type) {
 
 	int ret;
 	size_t sz;
@@ -82,12 +79,12 @@ http_streaming_start_ct(int fd, int code, const char *status, const char *conten
 	buffer = calloc(sz + 1, 1);
 	ret = sprintf(buffer, template, code, status, content_type);
 
-	ret = write(fd, buffer, sz);
+	ret = write(cx->fd, buffer, sz);
 	free(buffer);
 }
 
 int
-http_streaming_chunk(int fd, const char *data, size_t len) {
+http_streaming_chunk(struct connection *cx, const char *data, size_t len) {
 
 	int ret;
 	size_t sz = hex_length(len) + 2 + len + 2;
@@ -97,7 +94,7 @@ http_streaming_chunk(int fd, const char *data, size_t len) {
 	memcpy(buffer + ret, data, len);
 	memcpy(buffer + ret + len, "\r\n", 2);
 
-	ret = write(fd, buffer, sz);
+	ret = write(cx->fd, buffer, sz);
 	free(buffer);
 	if(ret == (int)sz) { /* success */
 		return (int)len;
@@ -106,11 +103,12 @@ http_streaming_chunk(int fd, const char *data, size_t len) {
 }
 
 void
-http_streaming_end(int fd) {
+http_streaming_end(struct connection *cx) {
 
-	int ret = write(fd, "0\r\n\r\n", 5);
+	int ret = write(cx->fd, "0\r\n\r\n", 5);
 	(void)ret;
-	socket_shutdown(fd);
+	// printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__);
+	// socket_shutdown(cx);
 }
 
 void
@@ -118,19 +116,19 @@ send_empty_reply(struct http_request *req, int error) {
 
 	switch(error) {
 		case 400:
-			http_response(req->fd, 400, "Bad Request", "", 0);
+			http_response(req->cx, 400, "Bad Request", "", 0);
 			break;
 
 		case 200:
-			http_response(req->fd, 200, "OK", "", 0);
+			http_response(req->cx, 200, "OK", "", 0);
 			break;
 
 		case 404:
-			http_response(req->fd, 404, "Not found", "", 0);
+			http_response(req->cx, 404, "Not found", "", 0);
 			break;
 
 		case 403:
-			http_response(req->fd, 403, "Forbidden", "", 0);
+			http_response(req->cx, 403, "Forbidden", "", 0);
 			break;
 	}
 }
@@ -142,7 +140,7 @@ send_empty_reply(struct http_request *req, int error) {
  */
 int
 http_parser_onurl(http_parser *parser, const char *at, size_t len) {
-	
+
 	struct http_request *req = parser->data;
 
 	const char *p = strchr(at, '?');
@@ -259,7 +257,7 @@ int
 http_parser_on_header_value (http_parser *parser, const char *at, size_t len) {
 
 	struct http_request *req = parser->data;
-	
+
 	if(strncmp(req->header_next, "Host", 4) == 0) { /* copy the "Host" header. */
 		req->host_len = len;
 		req->host = calloc(len + 1, 1);
