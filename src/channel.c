@@ -137,7 +137,7 @@ channel_del_connection(struct channel *channel, struct channel_user *cu) {
 	}
 	if(cu->free_on_remove) {
 		free(cu->jsonp);
-		printf("free %p\n", cu);
+		/* printf("free %p\n", cu); */
 		free(cu);
 	}
 }
@@ -195,7 +195,7 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 			*/
 		} else if(!cu->keep_connected) {
 			http_streaming_end(cu->cx);
-			printf("cx_remove from %s:%d\n", __FILE__, __LINE__);
+			/* printf("cx_remove from %s:%d\n", __FILE__, __LINE__); */
 			cx_remove(cu->cx);
 			/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
 			/*

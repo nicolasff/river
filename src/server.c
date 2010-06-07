@@ -39,8 +39,8 @@ update_event(int flags);
 void
 connection_free(struct connection *cx) {
 
-	printf("connection_free: cx=%p, cx->ev=%p\n", cx, cx->ev);
-	printf("disconnecting socket %d\n", cx->fd);
+	/* printf("connection_free: cx=%p, cx->ev=%p\n", cx, cx->ev); */
+	/* printf("disconnecting socket %d\n", cx->fd); */
 
 	cx_is_broken(cx->fd, EV_READ, cx);
 	free(cx);
@@ -85,7 +85,7 @@ worker_main(void *ptr) {
 		}
 		/* we can read data from the client, now. */
 		req.cx = calloc(sizeof(struct connection), 1);
-		printf("req.cx=%p\n", req.cx);
+		/* printf("req.cx=%p\n", req.cx); */
 		req.cx->fd = (int)(long)raw;
 
 		size_t len = sizeof(buffer), nb_parsed;
@@ -94,7 +94,7 @@ worker_main(void *ptr) {
 
 		/* fail, close. */
 		if(nb_read < 0) {
-			printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__);
+			/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
 			socket_shutdown(req.cx); /* byyyee */
 			continue;
 		}
@@ -116,7 +116,7 @@ worker_main(void *ptr) {
 					buffer, nb_read);
 
 			if((int)nb_parsed < nb_read - 1) {
-				printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__);
+				/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
 				cx_remove(req.cx);
 				action = -1;
 			} else {
@@ -129,7 +129,7 @@ worker_main(void *ptr) {
 
 		switch(action) {
 			case HTTP_DISCONNECT:
-				printf("calling cx_remove(%p) from %s:%d\n", req.cx, __FILE__, __LINE__);
+				/* printf("calling cx_remove(%p) from %s:%d\n", req.cx, __FILE__, __LINE__); */
 				cx_remove(req.cx);
 				// socket_shutdown(req.cx);
 				break;

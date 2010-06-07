@@ -84,7 +84,7 @@ ws_client_msg(int fd, short event, void *ptr) {
 	struct ws_client *wsc = ptr;
 
 	if(event != EV_READ) {
-		printf("event != EV_READ\n");
+		/* printf("event != EV_READ\n"); */
 		ws_close(wsc, wsc->cu->cx);
 		return;
 	}
@@ -122,7 +122,7 @@ ws_client_msg(int fd, short event, void *ptr) {
 		success = 0;
 	}
 	if(success == 0) {
-		printf("success=0\n");
+		/* printf("success=0\n"); */
 		ws_close(wsc, wsc->cu->cx);
 	} else { /* re-add the event only in case of success */
 		event_set(&wsc->ev, fd, EV_READ, ws_client_msg, wsc);
@@ -137,19 +137,13 @@ ws_client_msg(int fd, short event, void *ptr) {
 void
 ws_close(struct ws_client *wsc, struct connection *cx) {
 
-	printf("calling cx_remove from ws_close\n");
-	/*
-	cx_remove(cx);
-	free(wsc);
-	*/
-#if 1
+	/* printf("calling cx_remove from ws_close\n"); */
 	CHANNEL_LOCK(wsc->chan);
 	cx_remove(cx);
 	CHANNEL_UNLOCK(wsc->chan);
 	evbuffer_free(wsc->buffer);
 	event_del(&wsc->ev);
 	free(wsc);
-#endif
 }
 
 /**

@@ -83,7 +83,7 @@ cx_monitor(struct connection *cx) {
 	event_set(cx->ev, cx->fd, EV_READ, cx_is_broken, cx);
 	event_base_set(di.base, cx->ev);
 	event_add(cx->ev, NULL);
-	printf("cx = %p (fd=%d): ev monitored.\n", cx, cx->fd);
+	/* printf("cx = %p (fd=%d): ev monitored.\n", cx, cx->fd); */
 }
 
 void
@@ -96,7 +96,7 @@ cx_is_broken(int fd, short event, void *ptr) {
 
 	update_event(EV_READ | EV_PERSIST);
 
-	printf("calling cx_remove from cx_is_broken\n");
+	/* printf("calling cx_remove from cx_is_broken\n"); */
 	struct channel *chan = cx->channel;
 	if(chan) {
 		CHANNEL_LOCK(chan);
@@ -112,7 +112,7 @@ cx_remove(struct connection *cx) {
 
 	close(cx->fd);
 	if(cx->ev) {
-		printf("event_del: cx->ev=%p\n", cx->ev);
+		/* printf("event_del: cx->ev=%p\n", cx->ev); */
 		event_del(cx->ev);
 		free(cx->ev);
 	}
