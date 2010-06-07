@@ -94,7 +94,7 @@ worker_main(void *ptr) {
 
 		/* fail, close. */
 		if(nb_read < 0) {
-			/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
+			printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__);
 			socket_shutdown(req.cx); /* byyyee */
 			continue;
 		}
@@ -116,25 +116,26 @@ worker_main(void *ptr) {
 					buffer, nb_read);
 
 			if((int)nb_parsed < nb_read - 1) {
-				/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
-				socket_shutdown(req.cx);
-				continue;
+				printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__);
+				cx_remove(req.cx);
+				action = -1;
+			} else {
+				/* dispatch the client depending on the URL path */
+				req.base = wi->base;
+				/* printf("going to dispatch...\n"); */
+				action = http_dispatch(&req);
 			}
-
-			/* dispatch the client depending on the URL path */
-			req.base = wi->base;
-			/* printf("going to dispatch...\n"); */
-			action = http_dispatch(&req);
 		}
 
 		switch(action) {
 			case HTTP_DISCONNECT:
-				/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
-				socket_shutdown(req.cx);
+				printf("calling cx_remove(%p) from %s:%d\n", req.cx, __FILE__, __LINE__);
+				cx_remove(req.cx);
+				// socket_shutdown(req.cx);
 				break;
 
 			case HTTP_WEBSOCKET_MONITOR:
-				websocket_monitor(wi->base, req.cx, req.channel, req.cu);
+				websocket_monitor(wi->base, req.cx, req.cx->channel, req.cx->cu);
 				break;
 
 			case HTTP_KEEP_CONNECTED:

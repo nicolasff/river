@@ -136,15 +136,20 @@ ws_client_msg(int fd, short event, void *ptr) {
  */
 void
 ws_close(struct ws_client *wsc, struct connection *cx) {
+
+	printf("calling cx_remove from ws_close\n");
+	/*
+	cx_remove(cx);
+	free(wsc);
+	*/
+#if 1
 	CHANNEL_LOCK(wsc->chan);
-	channel_del_connection(wsc->chan, wsc->cu);
-	wsc->cu = NULL;
+	cx_remove(cx);
 	CHANNEL_UNLOCK(wsc->chan);
 	evbuffer_free(wsc->buffer);
 	event_del(&wsc->ev);
 	free(wsc);
-	/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
-	socket_shutdown(cx);
+#endif
 }
 
 /**

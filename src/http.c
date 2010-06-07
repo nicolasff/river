@@ -205,12 +205,14 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 		} else if(strncmp(key, "seq", 3) == 0) {
 			req->get.seq = atol(val);
 			req->get.has_seq = 1;
+			free(val);
 		} else if(strncmp(key, "keep", 4) == 0) {
 			req->get.keep = atol(val);
+			free(val);
 		} else {
-			free(key);
 			free(val);
 		}
+		free(key);
 
 		if(amp) { /* more to come */
 			p = amp + 1;

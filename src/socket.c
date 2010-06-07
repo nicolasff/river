@@ -1,5 +1,6 @@
 #include "socket.h"
 #include "server.h"
+#include "channel.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -12,6 +13,7 @@
 #include <stdio.h>
 #include <event.h>
 #include <unistd.h>
+#include <pthread.h>
 
 extern struct dispatcher_info di;
 
@@ -94,15 +96,29 @@ cx_is_broken(int fd, short event, void *ptr) {
 
 	update_event(EV_READ | EV_PERSIST);
 
-	if(-1 == close(cx->fd)) {
-		return;
+	printf("calling cx_remove from cx_is_broken\n");
+	struct channel *chan = cx->channel;
+	if(chan) {
+		CHANNEL_LOCK(chan);
 	}
+	cx_remove(cx);
+	if(chan) {
+		CHANNEL_UNLOCK(chan);
+	}
+}
+
+void
+cx_remove(struct connection *cx) {
+
+	close(cx->fd);
 	if(cx->ev) {
 		printf("event_del: cx->ev=%p\n", cx->ev);
 		event_del(cx->ev);
 		free(cx->ev);
-		cx->ev = NULL;
 	}
-	/* connection_free(cx); */
+	if(cx->cu) {
+		channel_del_connection(cx->channel, cx->cu);
+	}
+	free(cx);
 }
 

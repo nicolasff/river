@@ -18,6 +18,7 @@
 #include "http.h"
 #include "dict.h"
 #include "conf.h"
+#include "socket.h"
 
 static struct conf *__cfg;
 
@@ -87,7 +88,6 @@ http_action
 http_dispatch_read(struct http_request *req, start_function start_fun, write_function write_fun) {
 
 	http_action ret = HTTP_KEEP_CONNECTED;
-	/* printf("read!\n"); */
 
 	if(!req->get.name) {
 		send_empty_reply(req, 400);
@@ -95,16 +95,17 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	}
 
 	/* find channel */
-	if(!(req->channel = channel_find(req->get.name))) {
-		req->channel = channel_new(req->get.name);
+	if(!(req->cx->channel = channel_find(req->get.name))) {
+		req->cx->channel = channel_new(req->get.name);
 	}
 
 	/* printf("locking channel...\n"); */
-	CHANNEL_LOCK(req->channel);
+	CHANNEL_LOCK(req->cx->channel);
 	/* printf("done.\n"); */
-	req->cu = channel_new_connection(req->cx, req->get.keep, req->get.jsonp, write_fun);
+	req->cx->cu = channel_new_connection(req->cx, req->get.keep, req->get.jsonp, write_fun);
+	req->cx->cu->cx = req->cx;
 	if(-1 == start_fun(req)) {
-		CHANNEL_UNLOCK(req->channel);
+		CHANNEL_UNLOCK(req->cx->channel);
 		return HTTP_DISCONNECT;
 	}
 
@@ -117,15 +118,15 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 
 	/* chan is locked, check if we need to catch-up */
 	/* printf("req->has_seq = %d, req->seq=%llu, channel->seq=%llu\n", req->get.has_seq, req->get.seq, req->channel->seq); */
-	if(req->get.has_seq && req->get.seq < req->channel->seq) {
+	if(req->get.has_seq && req->get.seq < req->cx->channel->seq) {
 		/* printf("catch-up\n"); */
-		ret = channel_catchup_user(req->channel, req->cu, req->get.seq);
+		ret = channel_catchup_user(req->cx->channel, req->cx->cu, req->get.seq);
 		/* case 1 */
 		if(ret == HTTP_DISCONNECT) {
 			/* printf("disconnect\n"); */
-			free(req->cu->jsonp);
-			free(req->cu);
-			CHANNEL_UNLOCK(req->channel);
+			free(req->cx->cu->jsonp);
+			free(req->cx->cu);
+			CHANNEL_UNLOCK(req->cx->channel);
 			return HTTP_DISCONNECT;
 		} else {
 			/* printf("stay connected\n"); */
@@ -136,18 +137,18 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	}
 
 	/* stay connected: add cu to channel. */
-	channel_add_connection(req->channel, req->cu);
+	channel_add_connection(req->cx->channel, req->cx->cu);
 
 	/* add timeout to avoid keeping the user for too long. */
 	if(__cfg->client_timeout > 0) {
 		struct user_timeout *ut;
 
-		req->cu->free_on_remove = 0;
-		CHANNEL_UNLOCK(req->channel);
+		req->cx->cu->free_on_remove = 0;
+		CHANNEL_UNLOCK(req->cx->channel);
 
 		ut = calloc(1, sizeof(struct user_timeout));
-		ut->cu = req->cu;
-		ut->channel = req->channel;
+		ut->cu = req->cx->cu;
+		ut->channel = req->cx->channel;
 
 		/* timeout value. */
 		ut->tv.tv_sec = __cfg->client_timeout;
@@ -158,7 +159,7 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 		event_base_set(req->base, &ut->ev);
 		timeout_add(&ut->ev, &ut->tv);
 	} else {
-		CHANNEL_UNLOCK(req->channel);
+		CHANNEL_UNLOCK(req->cx->channel);
 	}
 
 	return ret;
