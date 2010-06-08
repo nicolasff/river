@@ -36,17 +36,6 @@ on_accept(int fd, short event, void *ptr);
 int
 update_event(int flags);
 
-void
-connection_free(struct connection *cx) {
-
-	/* printf("connection_free: cx=%p, cx->ev=%p\n", cx, cx->ev); */
-	/* printf("disconnecting socket %d\n", cx->fd); */
-
-	cx_is_broken(cx->fd, EV_READ, cx);
-	free(cx);
-}
-
-
 void *
 worker_main(void *ptr) {
 
@@ -87,6 +76,7 @@ worker_main(void *ptr) {
 		req.cx = calloc(sizeof(struct connection), 1);
 		/* printf("req.cx=%p\n", req.cx); */
 		req.cx->fd = (int)(long)raw;
+		cx_count(+1);
 
 		size_t len = sizeof(buffer), nb_parsed;
 		int nb_read;
@@ -94,8 +84,8 @@ worker_main(void *ptr) {
 
 		/* fail, close. */
 		if(nb_read < 0) {
-			/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
-			socket_shutdown(req.cx); /* byyyee */
+			/* printf("calling cx_remove from %s:%d\n", __FILE__, __LINE__); */
+			cx_remove(req.cx); /* byyyee */
 			continue;
 		}
 		buffer[nb_read] = 0;
@@ -116,7 +106,7 @@ worker_main(void *ptr) {
 					buffer, nb_read);
 
 			if((int)nb_parsed < nb_read - 1) {
-				/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
+				/* printf("calling cx_remove from %s:%d\n", __FILE__, __LINE__); */
 				cx_remove(req.cx);
 				action = -1;
 			} else {
@@ -131,7 +121,6 @@ worker_main(void *ptr) {
 			case HTTP_DISCONNECT:
 				/* printf("calling cx_remove(%p) from %s:%d\n", req.cx, __FILE__, __LINE__); */
 				cx_remove(req.cx);
-				// socket_shutdown(req.cx);
 				break;
 
 			case HTTP_WEBSOCKET_MONITOR:
@@ -194,11 +183,11 @@ on_accept(int fd, short event, void *ptr) {
 	addrlen = sizeof(addr);
 	/* printf("\n\naccepting...\n"); */
 	client_fd = accept(fd, &addr, &addrlen);
-	/* printf("accept returned %d\n", client_fd); */
+	/* printf("accept(on fd=%d) returned %d\n", fd, client_fd); */
 	if(client_fd < 1) {
 		/* failed accept, we need to stop accepting connections until we close a fd */
-		syslog(LOG_WARNING, "accept() returned %d: %m", client_fd);
 		/* printf("accept() returned %d: %s\n", client_fd, strerror(errno)); */
+		syslog(LOG_WARNING, "FAIL! accept() returned %d: %m", client_fd);
 		update_event(0);
 		return;
 	}
@@ -211,6 +200,7 @@ on_accept(int fd, short event, void *ptr) {
 		ret = event_add(ev, NULL);
 		if(ret != 0) {
 			syslog(LOG_WARNING, "event_add() failed: %m");
+			/* printf("event_add() failed: %s", strerror(errno)); */
 			update_event(0);
 		}
 	} else {
@@ -223,52 +213,52 @@ on_accept(int fd, short event, void *ptr) {
 int
 update_event(int flags) {
 
-	struct event *ev = &di.ev;
-	struct event_base *base = ev->ev_base;
+	struct event_base *base = di.base;
+
+	pthread_mutex_lock(&di.lock);
 
 	/* printf("allow_accept(fd=%d): %s\n", di.fd, (flags == 0 ? "NO":"YES")); */
 	if(di.ev_flags == flags) { /* no change in flags */
 		/* printf("already in that mode.\n"); */
-		return 0;
+		goto success;
 	}
 
-	di.ev_flags = flags;
-
-	if(flags == 0) {
-		if(event_del(ev) == -1) {
+	if(di.ev && flags == 0) {
+		/* printf("event_del: ev=%p (%s:%d)\n", di.ev, __FILE__, __LINE__); */
+		if(event_del(di.ev) == -1) {
 			syslog(LOG_WARNING, "event_del() failed.");
-			return -1;
+			goto failure;
 		}
-		return 0;
+		free(di.ev);
+		di.ev = NULL;
+		goto success;
 	}
-	event_set(ev, di.fd, flags, on_accept, NULL);
-	event_base_set(base, ev);
 
-	if(event_add(ev, 0) == -1) {
-		syslog(LOG_WARNING, "event_add() failed: %m");
+	free(di.ev);
+	di.ev = calloc(sizeof(struct event), 1);
+	event_set(di.ev, di.fd, flags, on_accept, NULL);
+	event_base_set(base, di.ev);
+
+	if(event_add(di.ev, 0) == -1) {
 		/* printf("event_add() failed: %s\n", strerror(errno)); */
+		syslog(LOG_WARNING, "event_add() failed: %m");
 		di.ev_flags = 0;
-		return -1;
-	}
 
-	return 0;
-}
+		free(di.ev);
+		di.ev = NULL;
 
-void
-socket_shutdown(struct connection *cx) {
-	/* printf("socket_shutdown: cx=%p, cx->ev=%p\n", cx, cx->ev); */
-	if(cx->ev) {
-		// event_active(cx->ev, cx->fd, EV_READ);
-		cx_is_broken(cx->fd, EV_READ, cx);
+		goto failure;
 	} else {
-
-		/* printf("closing fd=%d\n", cx->fd); */
-		close(cx->fd);
-		shutdown(cx->fd, SHUT_RDWR);
-		update_event(EV_READ | EV_PERSIST);
+		/* printf("Now accepting again on fd=%d!\n", di.fd); */
 	}
 
-	connection_free(cx);
+success:
+	di.ev_flags = flags;
+	pthread_mutex_unlock(&di.lock);
+	return 0;
+failure:
+	pthread_mutex_unlock(&di.lock);
+	return -1;
 }
 
 /**
@@ -290,9 +280,10 @@ server_run(short nb_workers, const char *ip, short port) {
 		return -1;
 	}
 	base = event_init();
-	event_set(&di.ev, di.fd, EV_READ | EV_PERSIST, on_accept, NULL);
-	event_base_set(base, &di.ev);
-	ret = event_add(&di.ev, NULL);
+	di.ev = calloc(sizeof(struct event), 1);
+	event_set(di.ev, di.fd, EV_READ | EV_PERSIST, on_accept, NULL);
+	event_base_set(base, di.ev);
+	ret = event_add(di.ev, NULL);
 	if(ret != 0) {
 		return -1;
 	}
@@ -302,6 +293,7 @@ server_run(short nb_workers, const char *ip, short port) {
 	di.base = base;
 	di.q = q;
 	pthread_cond_init(&di.cond, NULL);
+	pthread_mutex_init(&di.lock, NULL);
 
 	/* run workers */
 	for(i = 0; i < nb_workers; ++i) {
@@ -314,6 +306,9 @@ server_run(short nb_workers, const char *ip, short port) {
 
 	syslog(LOG_INFO, "Running.");
 
-	return event_base_loop(base, 0);
+	while(1) {
+		event_base_loop(base, 0);
+		/* printf("ffuuuu- %s\n", strerror(errno)); // break; */
+	}
 }
 

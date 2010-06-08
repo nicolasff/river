@@ -17,6 +17,9 @@
 
 extern struct dispatcher_info di;
 
+static int cx_total = 0;
+pthread_mutex_t cx_lock;
+
 /**
  * Sets up a non-blocking socket
  */
@@ -26,6 +29,8 @@ socket_setup(const char *ip, short port) {
 	int reuse = 1;
 	struct sockaddr_in addr;
 	int fd, ret;
+
+	pthread_mutex_init(&cx_lock, NULL);
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
@@ -74,7 +79,15 @@ socket_setup(const char *ip, short port) {
 	return fd;
 }
 
-
+void
+cx_count(int delta) {
+#if 0
+	pthread_mutex_lock(&cx_lock);
+	cx_total += delta;
+	/* printf("cx_total=%d\n", cx_total); */
+	pthread_mutex_unlock(&cx_lock);
+#endif
+}
 
 void
 cx_monitor(struct connection *cx) {
@@ -94,8 +107,6 @@ cx_is_broken(int fd, short event, void *ptr) {
 
 	struct connection *cx = ptr;
 
-	update_event(EV_READ | EV_PERSIST);
-
 	/* printf("calling cx_remove from cx_is_broken\n"); */
 	struct channel *chan = cx->channel;
 	if(chan) {
@@ -110,15 +121,21 @@ cx_is_broken(int fd, short event, void *ptr) {
 void
 cx_remove(struct connection *cx) {
 
+	/* printf("cx_remove(cx=%p), cx->fd=%d, cx->ev=%p\n", cx, cx->fd, cx->ev); */
 	close(cx->fd);
 	if(cx->ev) {
 		/* printf("event_del: cx->ev=%p\n", cx->ev); */
-		event_del(cx->ev);
+		/*int ret = */event_del(cx->ev);
+		/* printf("event_del returned %d\n", ret); */
 		free(cx->ev);
 	}
 	if(cx->cu) {
 		channel_del_connection(cx->channel, cx->cu);
 	}
+	/* printf("free(cx=%p)\n", cx); */
 	free(cx);
+	/* printf("free'd (cx=%p)\n", cx); */
+	update_event(EV_READ | EV_PERSIST);
+	cx_count(-1);
 }
 

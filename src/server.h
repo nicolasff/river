@@ -21,12 +21,14 @@ struct worker_info {
 struct dispatcher_info {
 
 	int fd;
-	struct event ev;
+	struct event 		*ev;
 	int ev_flags;
 
 	struct event_base	*base;
 	pthread_cond_t 		cond;
 	struct queue_t 		*q;
+
+	pthread_mutex_t 	lock;
 };
 
 void

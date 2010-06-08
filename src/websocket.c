@@ -137,7 +137,7 @@ ws_client_msg(int fd, short event, void *ptr) {
 void
 ws_close(struct ws_client *wsc, struct connection *cx) {
 
-	/* printf("calling cx_remove from ws_close\n"); */
+	/* printf("calling cx_remove from ws_close\n");  */
 	CHANNEL_LOCK(wsc->chan);
 	cx_remove(cx);
 	CHANNEL_UNLOCK(wsc->chan);
