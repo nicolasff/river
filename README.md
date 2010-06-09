@@ -58,15 +58,8 @@ The following example considers the page to be at `example.com`, and the comet s
 → That’s it for the proof of concept!
 
 #### TODO
-* Support Flash’s `<policy-file-request>\0` in the WebSocket implementation.
+* Test support for Flash’s `<policy-file-request>\0` in the WebSocket implementation.
 * Find a better name, “cometd” is already taken.
 * Add automatic dead channel deletion.
 * Cleanup code.
 * Remove dependency on dict.c in channels.
-* Fix possible bug for the following scenario:
-** Client A connects, is added to chan.
-** Client A disconnects
-** Client B writes to client A
-** There is a read() for client A in ws_client_msg
-** B's write() fails, client A is removed from the chan.
-** A's read() fails, A is removed from the chan (again).
