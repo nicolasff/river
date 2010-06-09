@@ -12,9 +12,6 @@ struct connection {
 };
 
 void
-cx_count(int delta);
-
-void
 cx_monitor(struct connection *cx);
 
 void

@@ -99,9 +99,7 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 		req->cx->channel = channel_new(req->get.name);
 	}
 
-	/* printf("locking channel...\n"); */
 	CHANNEL_LOCK(req->cx->channel);
-	/* printf("done.\n"); */
 	req->cx->cu = channel_new_connection(req->cx, req->get.keep, req->get.jsonp, write_fun);
 	req->cx->cu->cx = req->cx;
 	if(-1 == start_fun(req)) {
@@ -117,19 +115,15 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	 **/
 
 	/* chan is locked, check if we need to catch-up */
-	/* printf("req->has_seq = %d, req->seq=%llu, channel->seq=%llu\n", req->get.has_seq, req->get.seq, req->channel->seq); */
 	if(req->get.has_seq && req->get.seq < req->cx->channel->seq) {
-		/* printf("catch-up\n"); */
 		ret = channel_catchup_user(req->cx->channel, req->cx->cu, req->get.seq);
 		/* case 1 */
 		if(ret == HTTP_DISCONNECT) {
-			/* printf("disconnect\n"); */
 			free(req->cx->cu->jsonp);
 			free(req->cx->cu);
 			CHANNEL_UNLOCK(req->cx->channel);
 			return HTTP_DISCONNECT;
 		} else {
-			/* printf("stay connected\n"); */
 			/* case 2*/
 		}
 	} else {
@@ -185,7 +179,6 @@ http_dispatch_publish(struct http_request *req) {
 		send_empty_reply(req, 200); /* pretend we just did. */
 		return HTTP_DISCONNECT;
 	}
-	/* printf("here\n"); */
 
 	send_empty_reply(req, 200);
 

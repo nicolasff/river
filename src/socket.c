@@ -80,23 +80,12 @@ socket_setup(const char *ip, short port) {
 }
 
 void
-cx_count(int delta) {
-#if 0
-	pthread_mutex_lock(&cx_lock);
-	cx_total += delta;
-	/* printf("cx_total=%d\n", cx_total); */
-	pthread_mutex_unlock(&cx_lock);
-#endif
-}
-
-void
 cx_monitor(struct connection *cx) {
 
 	cx->ev = malloc(sizeof(struct event));
 	event_set(cx->ev, cx->fd, EV_READ, cx_is_broken, cx);
 	event_base_set(di.base, cx->ev);
 	event_add(cx->ev, NULL);
-	/* printf("cx = %p (fd=%d): ev monitored.\n", cx, cx->fd); */
 }
 
 void
@@ -107,7 +96,6 @@ cx_is_broken(int fd, short event, void *ptr) {
 
 	struct connection *cx = ptr;
 
-	/* printf("calling cx_remove from cx_is_broken\n"); */
 	struct channel *chan = cx->channel;
 	if(chan) {
 		CHANNEL_LOCK(chan);
@@ -121,21 +109,15 @@ cx_is_broken(int fd, short event, void *ptr) {
 void
 cx_remove(struct connection *cx) {
 
-	/* printf("cx_remove(cx=%p), cx->fd=%d, cx->ev=%p\n", cx, cx->fd, cx->ev); */
 	close(cx->fd);
 	if(cx->ev) {
-		/* printf("event_del: cx->ev=%p\n", cx->ev); */
-		/*int ret = */event_del(cx->ev);
-		/* printf("event_del returned %d\n", ret); */
+		event_del(cx->ev);
 		free(cx->ev);
 	}
 	if(cx->cu) {
 		channel_del_connection(cx->channel, cx->cu);
 	}
-	/* printf("free(cx=%p)\n", cx); */
 	free(cx);
-	/* printf("free'd (cx=%p)\n", cx); */
 	update_event(EV_READ | EV_PERSIST);
-	cx_count(-1);
 }
 

@@ -137,7 +137,6 @@ channel_del_connection(struct channel *channel, struct channel_user *cu) {
 	}
 	if(cu->free_on_remove) {
 		free(cu->jsonp);
-		/* printf("free %p\n", cu); */
 		free(cu);
 	}
 }
@@ -188,18 +187,9 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 			free(buffer);
 		}
 
-		if(ret != (int)sz) { /* failed write */
-			/* printf("failed write on %p\n", cu);
-			channel_del_connection(channel, cu);
-			*/
-		} else if(!cu->keep_connected) {
+		if(!cu->keep_connected) {
 			http_streaming_end(cu->cx);
-			/* printf("cx_remove from %s:%d\n", __FILE__, __LINE__); */
 			cx_remove(cu->cx);
-			/* printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__); */
-			/* printf("!keep_connected on %p\n", cu);
-			channel_del_connection(channel, cu);
-			*/
 		}
 		cu = next;
 	}
@@ -213,7 +203,6 @@ channel_catchup_user(struct channel *channel, struct channel_user *cu, unsigned 
 	int pos, first, last, ret, sent_data = 0;
 	int success = 1, found = 0;
 
-	/* printf("catch-up: seq=%llu, keep_connected=%d\n", seq, cu->keep_connected); */
 	last = LOG_CUR(channel);
 	first = pos = LOG_PREV(last);
 

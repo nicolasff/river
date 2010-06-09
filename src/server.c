@@ -74,9 +74,7 @@ worker_main(void *ptr) {
 		}
 		/* we can read data from the client, now. */
 		req.cx = calloc(sizeof(struct connection), 1);
-		/* printf("req.cx=%p\n", req.cx); */
 		req.cx->fd = (int)(long)raw;
-		cx_count(+1);
 
 		size_t len = sizeof(buffer), nb_parsed;
 		int nb_read;
@@ -84,7 +82,6 @@ worker_main(void *ptr) {
 
 		/* fail, close. */
 		if(nb_read < 0) {
-			/* printf("calling cx_remove from %s:%d\n", __FILE__, __LINE__); */
 			cx_remove(req.cx); /* byyyee */
 			continue;
 		}
@@ -106,20 +103,17 @@ worker_main(void *ptr) {
 					buffer, nb_read);
 
 			if((int)nb_parsed < nb_read - 1) {
-				/* printf("calling cx_remove from %s:%d\n", __FILE__, __LINE__); */
 				cx_remove(req.cx);
 				action = -1;
 			} else {
 				/* dispatch the client depending on the URL path */
 				req.base = wi->base;
-				/* printf("going to dispatch...\n"); */
 				action = http_dispatch(&req);
 			}
 		}
 
 		switch(action) {
 			case HTTP_DISCONNECT:
-				/* printf("calling cx_remove(%p) from %s:%d\n", req.cx, __FILE__, __LINE__); */
 				cx_remove(req.cx);
 				break;
 
@@ -180,12 +174,9 @@ on_accept(int fd, short event, void *ptr) {
 
 	/* accept connection */
 	addrlen = sizeof(addr);
-	/* printf("\n\naccepting...\n"); */
 	client_fd = accept(fd, &addr, &addrlen);
-	/* printf("accept(on fd=%d) returned %d\n", fd, client_fd); */
 	if(client_fd < 1) {
 		/* failed accept, we need to stop accepting connections until we close a fd */
-		/* printf("accept() returned %d: %s\n", client_fd, strerror(errno)); */
 		syslog(LOG_WARNING, "FAIL! accept() returned %d: %m", client_fd);
 		update_event(0);
 		return;
@@ -200,7 +191,6 @@ on_accept(int fd, short event, void *ptr) {
 		if(ret != 0) {
 			free(ev);
 			syslog(LOG_WARNING, "event_add() failed: %m");
-			/* printf("event_add() failed: %s", strerror(errno)); */
 			update_event(0);
 		}
 	} else {
@@ -217,14 +207,11 @@ update_event(int flags) {
 
 	pthread_mutex_lock(&di.lock);
 
-	/* printf("allow_accept(fd=%d): %s\n", di.fd, (flags == 0 ? "NO":"YES")); */
 	if(di.ev_flags == flags) { /* no change in flags */
-		/* printf("already in that mode.\n"); */
 		goto success;
 	}
 
 	if(di.ev && flags == 0) {
-		/* printf("event_del: ev=%p (%s:%d)\n", di.ev, __FILE__, __LINE__); */
 		if(event_del(di.ev) == -1) {
 			syslog(LOG_WARNING, "event_del() failed.");
 			goto failure;
@@ -240,7 +227,6 @@ update_event(int flags) {
 	event_base_set(base, di.ev);
 
 	if(event_add(di.ev, 0) == -1) {
-		/* printf("event_add() failed: %s\n", strerror(errno)); */
 		syslog(LOG_WARNING, "event_add() failed: %m");
 		di.ev_flags = 0;
 
@@ -248,8 +234,6 @@ update_event(int flags) {
 		di.ev = NULL;
 
 		goto failure;
-	} else {
-		/* printf("Now accepting again on fd=%d!\n", di.fd); */
 	}
 
 success:
@@ -308,7 +292,6 @@ server_run(short nb_workers, const char *ip, short port) {
 
 	while(1) {
 		event_base_loop(base, 0);
-		/* printf("ffuuuu- %s\n", strerror(errno)); // break; */
 	}
 }
 

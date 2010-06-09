@@ -108,8 +108,6 @@ http_streaming_end(struct connection *cx) {
 
 	int ret = write(cx->fd, "0\r\n\r\n", 5);
 	(void)ret;
-	// printf("calling socket_shutdown from %s:%d\n", __FILE__, __LINE__);
-	// socket_shutdown(cx);
 }
 
 void
