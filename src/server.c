@@ -151,7 +151,6 @@ worker_main(void *ptr) {
  */
 void
 on_client_data(int fd, short event, void *ptr) {
-	(void)ptr;
 
 	free(ptr);
 	if(event != EV_READ) {
@@ -199,6 +198,7 @@ on_accept(int fd, short event, void *ptr) {
 	if(ret == 0) {
 		ret = event_add(ev, NULL);
 		if(ret != 0) {
+			free(ev);
 			syslog(LOG_WARNING, "event_add() failed: %m");
 			/* printf("event_add() failed: %s", strerror(errno)); */
 			update_event(0);
@@ -229,7 +229,6 @@ update_event(int flags) {
 			syslog(LOG_WARNING, "event_del() failed.");
 			goto failure;
 		}
-		free(di.ev);
 		di.ev = NULL;
 		goto success;
 	}
@@ -289,7 +288,7 @@ server_run(short nb_workers, const char *ip, short port) {
 	}
 
 	/* fill in dispatcher info */
-	di.ev_flags = 0;
+	di.ev_flags = EV_READ | EV_PERSIST;
 	di.base = base;
 	di.q = q;
 	pthread_cond_init(&di.cond, NULL);
