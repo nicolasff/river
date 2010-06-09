@@ -229,6 +229,7 @@ update_event(int flags) {
 			syslog(LOG_WARNING, "event_del() failed.");
 			goto failure;
 		}
+		free(di.ev);
 		di.ev = NULL;
 		goto success;
 	}
