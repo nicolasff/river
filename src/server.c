@@ -74,7 +74,11 @@ worker_main(void *ptr) {
 		}
 		/* we can read data from the client, now. */
 		req.cx = calloc(sizeof(struct connection), 1);
+<<<<<<< Updated upstream
 		/* printf("req.cx=%p\n", req.cx); */
+=======
+		printf("\n\nreq.cx = %p\n", req.cx);
+>>>>>>> Stashed changes
 		req.cx->fd = (int)(long)raw;
 		cx_count(+1);
 
@@ -84,7 +88,11 @@ worker_main(void *ptr) {
 
 		/* fail, close. */
 		if(nb_read < 0) {
+<<<<<<< Updated upstream
 			/* printf("calling cx_remove from %s:%d\n", __FILE__, __LINE__); */
+=======
+			printf("calling cx_remove from %s:%d\n", __FILE__, __LINE__);
+>>>>>>> Stashed changes
 			cx_remove(req.cx); /* byyyee */
 			continue;
 		}
@@ -106,7 +114,11 @@ worker_main(void *ptr) {
 					buffer, nb_read);
 
 			if((int)nb_parsed < nb_read - 1) {
+<<<<<<< Updated upstream
 				/* printf("calling cx_remove from %s:%d\n", __FILE__, __LINE__); */
+=======
+			printf("calling cx_remove from %s:%d\n", __FILE__, __LINE__);
+>>>>>>> Stashed changes
 				cx_remove(req.cx);
 				action = -1;
 			} else {
@@ -119,15 +131,22 @@ worker_main(void *ptr) {
 
 		switch(action) {
 			case HTTP_DISCONNECT:
+<<<<<<< Updated upstream
 				/* printf("calling cx_remove(%p) from %s:%d\n", req.cx, __FILE__, __LINE__); */
+=======
+				printf("action = HTTP_DISCONNECT (req.path=%s)\n", req.path);
+				printf("calling cx_remove from %s:%d\n", __FILE__, __LINE__);
+>>>>>>> Stashed changes
 				cx_remove(req.cx);
 				break;
 
 			case HTTP_WEBSOCKET_MONITOR:
+				printf("action = HTTP_WEBSOCKET_MONITOR\n");
 				websocket_monitor(wi->base, req.cx, req.cx->channel, req.cx->cu);
 				break;
 
 			case HTTP_KEEP_CONNECTED:
+				printf("action = HTTP_KEEP_CONNECTED\n");
 				cx_monitor(req.cx);
 				break;
 		}

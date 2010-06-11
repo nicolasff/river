@@ -121,7 +121,11 @@ cx_is_broken(int fd, short event, void *ptr) {
 void
 cx_remove(struct connection *cx) {
 
+<<<<<<< Updated upstream
 	/* printf("cx_remove(cx=%p), cx->fd=%d, cx->ev=%p\n", cx, cx->fd, cx->ev); */
+=======
+	printf("cx_remove (cx=%p, cx->cu=%p)\n", cx, cx->cu);
+>>>>>>> Stashed changes
 	close(cx->fd);
 	if(cx->ev) {
 		/* printf("event_del: cx->ev=%p\n", cx->ev); */

@@ -1,7 +1,7 @@
 <html>
 
 	<head>
-		<title>comet</title>
+		<title>comet demo</title>
 
 		<style type="text/css">
 			div#chat {
@@ -15,11 +15,13 @@
 			}
 
 		</style>
+		<script type="text/javascript" src="http://river.test.com:1234/lib.js?domain=test.com"></script>
 	</head>
 <body>
 	<script type="text/javascript">
 
 		document.domain = "test.com";
+		/*
 		total = 0;
 		function notice(text) {
 		}
@@ -30,7 +32,22 @@
 			chat .innerHTML += "<br/>("+total+") received ["+obj.data+"] with sequence number ["+obj.seq+"]";
 			chat.scrollTop = chat.scrollHeight;
 		}
+		*/
+		var c = null;
 
+		document.domain = "test.com";
+
+		function onMsg(msg) {
+			console.log("received message: ", msg);
+		}
+
+		function comet() {
+			Comet.init(function() {
+				c = new Comet.Client();
+				c.connect("public-channel", onMsg); // call onMsg upon reception of a message.
+			});
+		}
+/*
 		function comet() {
 			var log = document.getElementById("log");
 			try {
@@ -48,6 +65,7 @@
 		function disconnect() {
 			c.disconnect();
 		}
+		*/
 
 		function sendMsg(e) {
 
@@ -65,7 +83,6 @@
 	
 	<button onclick="comet();">connect</button>
 	<button onclick="disconnect();">disconnect</button>
-	<iframe id="iframe" style="display: none;" src="http://cometd.test.com:1234/?domain=test.com"></iframe>
 	
 	<div id="log"></div>
 	<div id="chat"></div>

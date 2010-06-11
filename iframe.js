@@ -57,7 +57,7 @@ function CometClient(host){
 	this.pos = 0;
 	this.seq = 0;
 
-	this.hasWebSocket = (typeof(WebSocket) != "undefined");
+	this.hasWebSocket = false; //(typeof(WebSocket) != "undefined");
 
 	// detect if client can stream data using "xhr.readyState=3" or not
 	this.canStream = 1;
