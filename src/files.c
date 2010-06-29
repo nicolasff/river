@@ -63,8 +63,6 @@ file_send_iframe(struct connection *cx) {
 	http_streaming_chunk(cx, buffer_end, sizeof(buffer_end)-1);
 	http_streaming_end(cx);
 
-	free(iframe_buffer);
-	iframe_buffer = NULL;
 }
 
 
