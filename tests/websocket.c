@@ -104,10 +104,12 @@ websocket_read(int fd, short event, void *ptr) {
 		int sz, msg_sz;
 		
 		if(wt->got_header == 0) { /* first response */
-			char *frame_start = strstr(packet, "\r\n\r\n");
+			char *frame_start = strstr(packet, "MH"); /* end of the handshake */
 			if(frame_start == NULL) {
-				return;
+				return; /* not yet */
 			} else { /* start monitoring possible writes */
+				evbuffer_add(wt->buffer, frame_start + 2, ret - (frame_start + 2 - packet));
+
 				wt->got_header = 1;
 				event_set(&wt->ev_w, fd, EV_WRITE,
 						websocket_write, wt);
