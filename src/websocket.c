@@ -45,10 +45,9 @@ ws_start(struct connection *cx) {
 		return -1;
 	}
 
-	/* WARNING: this implementation is OLD, and does not use the new handshake.
-	 * In future versions, "Web Socket Protocol" will become "WebSocket Protocol"
+	/* This code uses the WebSocket specification from May 23, 2010.
+	 * The latest copy is available at http://www.whatwg.org/specs/web-socket-protocol/
 	 */
-
 	sz = sizeof(template) + cx->origin_len + cx->host_len * 2 + cx->get.name_len
 		+ sizeof(handshake) - 1
 		- (2 + 2 + 2 + 2); /* %s must be removed from the template size */
