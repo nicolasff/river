@@ -160,7 +160,10 @@ worker_main(void *ptr) {
 				"Connection: Upgrade\r\n"
 				"Upgrade: WebSocket\r\n"
 				"Origin: http://%s:%d\r\n"
-				"\r\n";
+				"Sec-WebSocket-Key1: 18x 6]8vM;54 *(5:  {   U1]8  z [  8\r\n"
+				"Sec-WebSocket-Key2: 1_ tx7X d  <  nw  334J702) 7]o}` 0\r\n"
+				"\r\n"
+				"Tm[K T2u";
 
 	struct worker_thread *wt = ptr;
 
@@ -191,7 +194,7 @@ worker_main(void *ptr) {
 
 	/* send handshake */
 	ws_handshake_sz = sizeof(ws_handshake) + strlen(wt->chan)
-		+ 2*strlen(wt->hi->host) + 200;
+		+ 2*strlen(wt->hi->host) + 500;
 	ws_handshake = calloc(ws_handshake_sz, 1);
 	ws_handshake_sz = (size_t)sprintf(ws_handshake, ws_template, 
 			wt->chan,

@@ -205,7 +205,7 @@ main(int argc, char *argv[]) {
 
 	int reader_per_chan = 400;
 	int writer_per_chan = 40;
-	int request_count = 500000;
+	int request_count = 1000000;
 	int channel_count = 2;
 	int i;
 
