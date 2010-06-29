@@ -9,7 +9,7 @@ git submodule update
 
 #### Run demo
 1 - run `make clean all`  
-2 - run `./cometd`
+2 - run `./river`
 
 3 - In a terminal, run:
 <pre>
@@ -27,11 +27,11 @@ curl "http://127.0.0.1:1234/publish?name=public-channel&data=hello-world-of-come
 
 
 ### Embed in an HTML page
-The following example considers the page to be at `example.com`, and the comet server at `cometd.example.com`.
+The following example considers the page to be at `example.com`, and the comet server at `river.example.com`.
 
 1 - Add a reference to the `lib.js` script in your page:
 <pre>
-	&lt;script type="text/javascript" src="http://cometd.example.com/lib.js?domain=example.com"&gt;&lt;/script&gt;
+	&lt;script type="text/javascript" src="http://river.example.com/lib.js?domain=example.com"&gt;&lt;/script&gt;
 </pre>
 2 - Initialize the server:
 <pre>
@@ -59,7 +59,5 @@ The following example considers the page to be at `example.com`, and the comet s
 
 #### TODO
 * Test support for Flash’s `<policy-file-request>\0` in the WebSocket implementation.
-* Find a better name, “cometd” is already taken.
 * Add automatic dead channel deletion.
-* Cleanup code.
 * Remove dependency on dict.c in channels.
