@@ -1,0 +1,16 @@
+Package: river
+Version: 1.0
+Section: web
+Priority: optional
+Architecture: all
+Essential: no
+Depends:
+Pre-Depends:
+Recommends:
+Suggests:
+Installed-Size:
+Maintainer: Nicolas Favre-Felix [n.favrefelix@gmail.com]
+Conflicts:
+Replaces:
+Provides: river
+Description: Comet server
