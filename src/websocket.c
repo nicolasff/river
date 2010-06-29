@@ -83,7 +83,7 @@ ws_read_key(char *p) {
 int
 ws_handshake(struct connection *cx, unsigned char *out) {
 	char buffer[16];
-	MD5_CTX ctx;
+	md5_state_t ctx;
 
 	// websocket handshake
 	uint32_t number_1 = ws_read_key(cx->get.ws1);
@@ -97,9 +97,9 @@ ws_handshake(struct connection *cx, unsigned char *out) {
 	memcpy(buffer + sizeof(uint32_t), &number_2, sizeof(uint32_t));
 	memcpy(buffer + 2 * sizeof(uint32_t), cx->post, cx->post_len);
 	
-	MD5Init(&ctx);
-	MD5Update(&ctx, buffer, sizeof(buffer));
-	MD5Final(out, &ctx);
+	md5_init(&ctx);
+	md5_append(&ctx, (const md5_byte_t *)buffer, sizeof(buffer));
+	md5_finish(&ctx, out);
 
 	return 0;
 }
