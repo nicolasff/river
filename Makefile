@@ -1,5 +1,5 @@
-OUT=cometd
-OBJS=src/server.o src/socket.o src/http_dispatch.o src/cometd.o src/channel.o src/queue.o src/http-parser/http_parser.o src/http.o src/dict.o src/json.o src/conf.o src/websocket.o src/files.o
+OUT=river
+OBJS=src/server.o src/socket.o src/river.o src/channel.o src/http-parser/http_parser.o src/thread.o src/http.o src/http_dispatch.o src/dict.o src/json.o src/websocket.o src/files.o src/md5.o
 CFLAGS=-O3 -ggdb -Wall -Wextra -Isrc/http-parser
 LDFLAGS=-levent -lpthread
 

@@ -19,16 +19,18 @@ struct ws_client {
 };
 
 int
-ws_start(struct http_request *req);
+ws_start(struct connection *cx);
 
 int
 ws_write(struct connection *cx, const char *buf, size_t len);
 
 void
-ws_close(struct ws_client *wsc, struct connection *cx);
+ws_close(struct connection *cx);
 
-void
-websocket_monitor(struct event_base *base, struct connection *cx, struct channel *chan,
-		struct channel_user *cu);
+int
+ws_handshake(struct connection *cx, unsigned char *out);
+
+int
+ws_client_msg(struct connection *cx);
 
 #endif /* WEBSOCKET_H */

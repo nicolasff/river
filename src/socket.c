@@ -1,7 +1,3 @@
-#include "socket.h"
-#include "server.h"
-#include "channel.h"
-
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -14,11 +10,14 @@
 #include <event.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <event.h>
+
+#include "socket.h"
+#include "websocket.h"
+#include "channel.h"
+
 
 extern struct dispatcher_info di;
-
-static int cx_total = 0;
-pthread_mutex_t cx_lock;
 
 /**
  * Sets up a non-blocking socket
@@ -29,8 +28,6 @@ socket_setup(const char *ip, short port) {
 	int reuse = 1;
 	struct sockaddr_in addr;
 	int fd, ret;
-
-	pthread_mutex_init(&cx_lock, NULL);
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
@@ -79,27 +76,27 @@ socket_setup(const char *ip, short port) {
 	return fd;
 }
 
-void
-cx_monitor(struct connection *cx) {
+struct connection *
+cx_new(int fd) {
+	struct connection *cx = calloc(sizeof(struct connection), 1);
+	cx->fd = fd;
 
-	cx->ev = malloc(sizeof(struct event));
-	event_set(cx->ev, cx->fd, EV_READ, cx_is_broken, cx);
-	event_base_set(di.base, cx->ev);
-	event_add(cx->ev, NULL);
+	return cx;
 }
 
 void
 cx_is_broken(int fd, short event, void *ptr) {
-
 	(void)event;
 	(void)fd;
 
 	struct connection *cx = ptr;
-
+	
+	printf("fd=%d closed (cx=%p)\n", fd, cx);
 	struct channel *chan = cx->channel;
 	if(chan) {
 		CHANNEL_LOCK(chan);
 	}
+	/* printf("calling cx_remove(%p) from %s:%d\n", cx, __FILE__, __LINE__); */
 	cx_remove(cx);
 	if(chan) {
 		CHANNEL_UNLOCK(chan);
@@ -108,16 +105,40 @@ cx_is_broken(int fd, short event, void *ptr) {
 
 void
 cx_remove(struct connection *cx) {
-
 	close(cx->fd);
+
+	if(cx->cu) {
+		/* channel MUST be locked when cx_remove is called. */
+		channel_del_connection(cx->channel, cx->cu);
+	}
+
 	if(cx->ev) {
 		event_del(cx->ev);
 		free(cx->ev);
 	}
-	if(cx->cu) {
-		channel_del_connection(cx->channel, cx->cu);
+
+	/* cleanup */
+	free(cx->host);
+	free(cx->origin);
+	free(cx->path);
+	if(cx->wsc) {
+		free(cx->wsc);
+		evbuffer_free(cx->wsc->buffer);
 	}
+
+	free(cx->get.name);
+	free(cx->get.data);
+	free(cx->get.jsonp);
+	free(cx->get.domain);
+
 	free(cx);
-	update_event(EV_READ | EV_PERSIST);
+}
+
+void
+cx_monitor(struct connection *cx, struct event_base *base) {
+	cx->ev = calloc(sizeof(struct event), 1);
+	event_set(cx->ev, cx->fd, EV_READ, cx_is_broken, cx);
+	event_base_set(base, cx->ev);
+	event_add(cx->ev, NULL);
 }
 

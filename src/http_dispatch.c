@@ -1,37 +1,17 @@
-#include <sys/queue.h>
-
-#include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <stdlib.h>
 #include <event.h>
-#include <fcntl.h>
-#include <sys/types.h>
-
+#include <stdio.h>
 
 #include "http_dispatch.h"
+#include "socket.h"
+#include "http.h"
+#include "channel.h"
 #include "websocket.h"
 #include "files.h"
-#include "channel.h"
-#include "server.h"
-#include "http.h"
-#include "dict.h"
-#include "conf.h"
-#include "socket.h"
-
-static struct conf *__cfg;
-
-void
-http_init(struct conf *cfg) {
-
-	/* eww. */
-	__cfg = cfg;
-}
 
 static int
-start_fun_http(struct http_request *req) {
-	http_streaming_start(req->cx, 200, "OK");
+start_fun_http(struct connection *cx) {
+	http_streaming_start(cx, 200, "OK");
 	return 0;
 }
 
@@ -39,43 +19,28 @@ start_fun_http(struct http_request *req) {
  * Dispatch based on the path
  */
 http_action
-http_dispatch(struct http_request *req) {
+http_dispatch(struct connection *cx) {
 
-	if(req->path_len == 8 && 0 == strncmp(req->path, "/publish", 8)) {
-		return http_dispatch_publish(req);
-	} else if(req->path_len == 10 && 0 == strncmp(req->path, "/subscribe", 10)) {
-		return http_dispatch_read(req, start_fun_http, http_streaming_chunk);
-	} else if(req->path_len == 10 && 0 == strncmp(req->path, "/websocket", 10)) {
-		if(HTTP_KEEP_CONNECTED == http_dispatch_read(req, ws_start, ws_write)) {
+	if(cx->path_len == 8 && 0 == strncmp(cx->path, "/publish", 8)) {
+		cx->state = CX_PUBLISHING;
+		return http_dispatch_publish(cx);
+	} else if(cx->path_len == 10 && 0 == strncmp(cx->path, "/subscribe", 10)) {
+		cx->state = CX_CONNECTED_COMET;
+		return http_dispatch_read(cx, start_fun_http, http_streaming_chunk);
+	} else if(cx->path_len == 10 && 0 == strncmp(cx->path, "/websocket", 10)) {
+		cx->state = CX_CONNECTED_WEBSOCKET;
+		if(HTTP_KEEP_CONNECTED == http_dispatch_read(cx, ws_start, ws_write)) {
 			return HTTP_WEBSOCKET_MONITOR;
 		}
 		return HTTP_DISCONNECT;
-
-	} else if(file_send(req) == 0) { /* check if we're sending a file. */
+	} else if(file_send(cx) == 0) { /* check if we're sending a file. */
+		cx->state = CX_SENDING_FILE;
 		return HTTP_DISCONNECT;
 	}
 
-	send_empty_reply(req, 404);
+	cx->state = CX_BROKEN;
+	send_empty_reply(cx, 404);
 	return HTTP_DISCONNECT;
-}
-
-void
-on_client_too_old(int fd, short event, void *arg) {
-
-	(void)fd;
-	struct user_timeout *ut = arg;
-	if(event != EV_TIMEOUT) {
-		return;
-	}
-	/* disconnect user */
-	http_streaming_end(ut->cu->cx);
-
-	/* remove from channel */
-	CHANNEL_LOCK(ut->channel);
-	channel_del_connection(ut->channel, ut->cu);
-	CHANNEL_UNLOCK(ut->channel);
-	free(ut->cu); /* TODO: check this line, there could be a double-free here. */
-	free(ut);
 }
 
 /**
@@ -85,25 +50,24 @@ on_client_too_old(int fd, short event, void *arg) {
  * @param write_fun is called to write data to the client.
  */
 http_action
-http_dispatch_read(struct http_request *req, start_function start_fun, write_function write_fun) {
+http_dispatch_read(struct connection *cx, start_function start_fun, write_function write_fun) {
 
 	http_action ret = HTTP_KEEP_CONNECTED;
 
-	if(!req->get.name) {
-		send_empty_reply(req, 400);
+	if(!cx->get.name) {
+		send_empty_reply(cx, 400);
 		return HTTP_DISCONNECT;
 	}
 
 	/* find channel */
-	if(!(req->cx->channel = channel_find(req->get.name))) {
-		req->cx->channel = channel_new(req->get.name);
+	if(!(cx->channel = channel_find(cx->get.name))) {
+		cx->channel = channel_new(cx->get.name);
 	}
 
-	CHANNEL_LOCK(req->cx->channel);
-	req->cx->cu = channel_new_connection(req->cx, req->get.keep, req->get.jsonp, write_fun);
-	req->cx->cu->cx = req->cx;
-	if(-1 == start_fun(req)) {
-		CHANNEL_UNLOCK(req->cx->channel);
+	CHANNEL_LOCK(cx->channel);
+	cx->cu = channel_new_connection(cx, cx->get.keep, cx->get.jsonp, write_fun);
+	if(-1 == start_fun(cx)) {
+		CHANNEL_UNLOCK(cx->channel);
 		return HTTP_DISCONNECT;
 	}
 
@@ -115,13 +79,11 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	 **/
 
 	/* chan is locked, check if we need to catch-up */
-	if(req->get.has_seq && req->get.seq < req->cx->channel->seq) {
-		ret = channel_catchup_user(req->cx->channel, req->cx->cu, req->get.seq);
+	if(cx->get.has_seq && cx->get.seq < cx->channel->seq) {
+		ret = channel_catchup_user(cx->channel, cx->cu, cx->get.seq);
 		/* case 1 */
 		if(ret == HTTP_DISCONNECT) {
-			free(req->cx->cu->jsonp);
-			free(req->cx->cu);
-			CHANNEL_UNLOCK(req->cx->channel);
+			CHANNEL_UNLOCK(cx->channel);
 			return HTTP_DISCONNECT;
 		} else {
 			/* case 2*/
@@ -131,18 +93,19 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 	}
 
 	/* stay connected: add cu to channel. */
-	channel_add_connection(req->cx->channel, req->cx->cu);
+	channel_add_connection(cx->channel, cx->cu);
 
 	/* add timeout to avoid keeping the user for too long. */
+#if 0
 	if(__cfg->client_timeout > 0) {
 		struct user_timeout *ut;
 
-		req->cx->cu->free_on_remove = 0;
-		CHANNEL_UNLOCK(req->cx->channel);
+		cx->cu->free_on_remove = 0;
+		CHANNEL_UNLOCK(cx->channel);
 
 		ut = calloc(1, sizeof(struct user_timeout));
-		ut->cu = req->cx->cu;
-		ut->channel = req->cx->channel;
+		ut->cu = cx->cu;
+		ut->channel = cx->channel;
 
 		/* timeout value. */
 		ut->tv.tv_sec = __cfg->client_timeout;
@@ -150,11 +113,14 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
 
 		/* add timeout event */
 		timeout_set(&ut->ev, on_client_too_old, ut);
-		event_base_set(req->base, &ut->ev);
+		event_base_set(cx->base, &ut->ev);
 		timeout_add(&ut->ev, &ut->tv);
 	} else {
-		CHANNEL_UNLOCK(req->cx->channel);
+#endif
+		CHANNEL_UNLOCK(cx->channel);
+#if 0
 	}
+#endif
 
 	return ret;
 }
@@ -165,26 +131,27 @@ http_dispatch_read(struct http_request *req, start_function start_fun, write_fun
  * Parameters: name (channel name), data.
  */
 http_action
-http_dispatch_publish(struct http_request *req) {
-
+http_dispatch_publish(struct connection *cx) {
 	struct channel *channel;
 
-	if(!req->get.name || !req->get.data) {
-		send_empty_reply(req, 403);
+	if(!cx->get.name || !cx->get.data) {
+		send_empty_reply(cx, 403);
 		return HTTP_DISCONNECT;
 	}
 
 	/* find channel */
-	if(!(channel = channel_find(req->get.name))) {
-		send_empty_reply(req, 200); /* pretend we just did. */
+	if(!(channel = channel_find(cx->get.name))) {
+		send_empty_reply(cx, 200); /* pretend we just did. */
 		return HTTP_DISCONNECT;
 	}
 
-	send_empty_reply(req, 200);
+	send_empty_reply(cx, 200);
 
 	/* send to all channel users. */
-	channel_write(channel, req->get.data, req->get.data_len);
+	channel_write(channel, cx->get.data, cx->get.data_len);
 
 	return HTTP_DISCONNECT;
 }
+
+
 

@@ -5,14 +5,14 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-
 #include "files.h"
+#include "socket.h"
 
 /**
  * Return generic page for iframe inclusion
  */
 static void
-file_send_iframe(struct http_request *req) {
+file_send_iframe(struct connection *cx) {
 
 	static char *iframe_buffer = NULL;
 	static size_t iframe_buffer_len = -1;
@@ -50,18 +50,21 @@ file_send_iframe(struct http_request *req) {
 	char buffer_domain[] = "\";\n";
 	char buffer_end[] = "</script></body></html>\n";
 
-	http_streaming_start(req->cx, 200, "OK");
-	http_streaming_chunk(req->cx, buffer_start, sizeof(buffer_start)-1);
-	if(req->get.domain) {
-		http_streaming_chunk(req->cx, req->get.domain, req->get.domain_len);
+	http_streaming_start(cx, 200, "OK");
+	http_streaming_chunk(cx, buffer_start, sizeof(buffer_start)-1);
+	if(cx->get.domain) {
+		http_streaming_chunk(cx, cx->get.domain, cx->get.domain_len);
 	}
-	http_streaming_chunk(req->cx, buffer_domain, sizeof(buffer_domain)-1);
+	http_streaming_chunk(cx, buffer_domain, sizeof(buffer_domain)-1);
 
 	/* iframe.js */
-	http_streaming_chunk(req->cx, iframe_buffer, iframe_buffer_len);
+	http_streaming_chunk(cx, iframe_buffer, iframe_buffer_len);
 
-	http_streaming_chunk(req->cx, buffer_end, sizeof(buffer_end)-1);
-	http_streaming_end(req->cx);
+	http_streaming_chunk(cx, buffer_end, sizeof(buffer_end)-1);
+	http_streaming_end(cx);
+
+	free(iframe_buffer);
+	iframe_buffer = NULL;
 }
 
 
@@ -69,7 +72,7 @@ file_send_iframe(struct http_request *req) {
  * Send Javascript library
  */
 static void
-file_send_libjs(struct http_request *req) {
+file_send_libjs(struct connection *cx) {
 
 	char buffer_start[] = "var comet_domain = '";
 	char buffer_domain[] = "'; var common_domain = '";
@@ -88,23 +91,23 @@ Comet = {\
 	}\
 };";
 
-	http_streaming_start_ct(req->cx, 200, "OK", "text/javascript");
-	http_streaming_chunk(req->cx, buffer_start, sizeof(buffer_start)-1);
+	http_streaming_start_ct(cx, 200, "OK", "text/javascript");
+	http_streaming_chunk(cx, buffer_start, sizeof(buffer_start)-1);
 
 	/* then current host */
-	if(req->host) {
-		http_streaming_chunk(req->cx, req->host, req->host_len);
+	if(cx->host) {
+		http_streaming_chunk(cx, cx->host, cx->host_len);
 	}
 
 	/* then common domain */
-	http_streaming_chunk(req->cx, buffer_domain, sizeof(buffer_domain)-1);
-	if(req->get.domain) {
-		http_streaming_chunk(req->cx, req->get.domain, req->get.domain_len);
+	http_streaming_chunk(cx, buffer_domain, sizeof(buffer_domain)-1);
+	if(cx->get.domain) {
+		http_streaming_chunk(cx, cx->get.domain, cx->get.domain_len);
 	}
 
 	/* finally, the code itself. */
-	http_streaming_chunk(req->cx, buffer_js, sizeof(buffer_js)-1);
-	http_streaming_end(req->cx);
+	http_streaming_chunk(cx, buffer_js, sizeof(buffer_js)-1);
+	http_streaming_end(cx);
 }
 
 const char flash_xd[] = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
@@ -124,14 +127,14 @@ file_send_flash_crossdomain(struct connection *cx) {
 }
 
 int
-file_send(struct http_request *req) {
+file_send(struct connection *cx) {
 
-	if(req->path_len == 7 && strncmp("/iframe", req->path, req->path_len) == 0) {
-		file_send_iframe(req);
-	} else if(req->path_len == 7 && strncmp("/lib.js", req->path, req->path_len) == 0) {
-		file_send_libjs(req);
-	} else if(req->path_len == 16 && strncmp("/crossdomain.xml", req->path, req->path_len) == 0) {
-		file_send_flash_crossdomain(req->cx);
+	if(cx->path_len == 7 && strncmp("/iframe", cx->path, cx->path_len) == 0) {
+		file_send_iframe(cx);
+	} else if(cx->path_len == 7 && strncmp("/lib.js", cx->path, cx->path_len) == 0) {
+		file_send_libjs(cx);
+	} else if(cx->path_len == 16 && strncmp("/crossdomain.xml", cx->path, cx->path_len) == 0) {
+		file_send_flash_crossdomain(cx);
 	} else {
 		return -1;
 	}

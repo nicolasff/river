@@ -1,17 +1,12 @@
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
-#include <errno.h>
-#include <sys/socket.h>
+#include <stdio.h>
 
 #include "channel.h"
-#include "http.h"
-#include "json.h"
-#include "server.h"
 #include "socket.h"
-
-#include <unistd.h>
-#include <pthread.h>
+#include "dict.h"
+#include "json.h"
+#include "socket.h"
 
 #define LOG_BUFFER_SIZE	20
 
@@ -189,6 +184,7 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 
 		if(!cu->keep_connected) {
 			http_streaming_end(cu->cx);
+			/* printf("calling cx_remove(%p) from %s:%d\n", cu->cx, __FILE__, __LINE__); */
 			cx_remove(cu->cx);
 		}
 		cu = next;

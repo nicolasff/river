@@ -1,33 +1,18 @@
-#ifndef COMETD_HTTP_DISPATCH_H
-#define COMETD_HTTP_DISPATCH_H
+#ifndef HTTP_DISPATCH_H
+#define HTTP_DISPATCH_H
 
 #include "http.h"
 
-struct http_request;
-struct conf;
-struct channel;
-struct event;
-
-struct user_timeout {
-
-	struct channel_user *cu;
-	struct channel *channel;
-	struct event ev;
-	struct timeval tv;
-};
-
-void
-http_init(struct conf *cfg);
+struct connection;
 
 http_action
-http_dispatch(struct http_request *req);
+http_dispatch(struct connection *cx);
 
 http_action
-http_dispatch_read(struct http_request *req, start_function start_fun,
+http_dispatch_publish(struct connection *cx);
+
+http_action
+http_dispatch_read(struct connection *cx, start_function start_fun,
 		write_function write_fun);
 
-http_action
-http_dispatch_publish(struct http_request *req);
-
-#endif /* COMETD_HTTP_DISPATCH_H */
-
+#endif

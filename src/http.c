@@ -1,11 +1,9 @@
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <string.h>
-#include <sys/socket.h>
 
 #include "http.h"
-#include "server.h"
 #include "socket.h"
 
 int
@@ -111,27 +109,26 @@ http_streaming_end(struct connection *cx) {
 }
 
 void
-send_empty_reply(struct http_request *req, int error) {
+send_empty_reply(struct connection *cx, int error) {
 
 	switch(error) {
 		case 400:
-			http_response(req->cx, 400, "Bad Request", "", 0);
+			http_response(cx, 400, "Bad Request", "", 0);
 			break;
 
 		case 200:
-			http_response(req->cx, 200, "OK", "", 0);
+			http_response(cx, 200, "OK", "", 0);
 			break;
 
 		case 404:
-			http_response(req->cx, 404, "Not found", "", 0);
+			http_response(cx, 404, "Not found", "", 0);
 			break;
 
 		case 403:
-			http_response(req->cx, 403, "Forbidden", "", 0);
+			http_response(cx, 403, "Forbidden", "", 0);
 			break;
 	}
 }
-
 
 
 /**
@@ -140,16 +137,15 @@ send_empty_reply(struct http_request *req, int error) {
 int
 http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 
-	struct http_request *req = parser->data;
+	struct connection *cx = parser->data;
 
 	const char *p = strchr(at, '?');
 
 	if(!p) return 0;
 	p++;
 
-	/*req->get = dictCreate(&dictTypeCopyNoneFreeAll, NULL);*/
-	memset(&req->get, 0, sizeof(req->get));
-	req->get.keep = 1;
+	memset(&cx->get, 0, sizeof(cx->get));
+	cx->get.keep = 1;
 
 
 	/* we have strings in the following format: at="ab=12&cd=34ø", len=11 */
@@ -189,23 +185,23 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 
 		/* add to the GET dictionary */
 		if(strncmp(key, "name", 4) == 0) {
-			req->get.name = val;
-			req->get.name_len = val_len;
+			cx->get.name = val;
+			cx->get.name_len = val_len;
 		} else if(strncmp(key, "data", 4) == 0) {
-			req->get.data = val;
-			req->get.data_len = val_len;
+			cx->get.data = val;
+			cx->get.data_len = val_len;
 		} else if(strncmp(key, "jsonp", 5) == 0) {
-			req->get.jsonp = val;
-			req->get.jsonp_len = val_len;
+			cx->get.jsonp = val;
+			cx->get.jsonp_len = val_len;
 		} else if(strncmp(key, "domain", 6) == 0) {
-			req->get.domain = val;
-			req->get.domain_len = val_len;
+			cx->get.domain = val;
+			cx->get.domain_len = val_len;
 		} else if(strncmp(key, "seq", 3) == 0) {
-			req->get.seq = atol(val);
-			req->get.has_seq = 1;
+			cx->get.seq = atol(val);
+			cx->get.has_seq = 1;
 			free(val);
 		} else if(strncmp(key, "keep", 4) == 0) {
-			req->get.keep = atol(val);
+			cx->get.keep = atol(val);
 			free(val);
 		} else {
 			free(val);
@@ -228,11 +224,11 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 int
 http_parser_onpath(http_parser *parser, const char *at, size_t len) {
 
-	struct http_request *req = parser->data;
+	struct connection *cx = parser->data;
 
-	req->path = calloc(1+len, 1);
-	memcpy(req->path, at, len);
-	req->path_len = len;
+	cx->path = calloc(1+len, 1);
+	memcpy(cx->path, at, len);
+	cx->path_len = len;
 
 	return 0;
 }
@@ -243,10 +239,10 @@ http_parser_onpath(http_parser *parser, const char *at, size_t len) {
 int
 http_parser_on_header_field(http_parser *parser, const char *at, size_t len) {
 
-	struct http_request *req = parser->data;
+	struct connection *cx = parser->data;
 
-	req->header_next = calloc(len+1, 1); /* memorize the last seen */
-	memcpy(req->header_next, at, len);
+	cx->header_next = calloc(len+1, 1); /* memorize the last seen */
+	memcpy(cx->header_next, at, len);
 
 	return 0;
 }
@@ -257,19 +253,26 @@ http_parser_on_header_field(http_parser *parser, const char *at, size_t len) {
 int
 http_parser_on_header_value (http_parser *parser, const char *at, size_t len) {
 
-	struct http_request *req = parser->data;
+	struct connection *cx = parser->data;
 
-	if(strncmp(req->header_next, "Host", 4) == 0) { /* copy the "Host" header. */
-		req->host_len = len;
-		req->host = calloc(len + 1, 1);
-		memcpy(req->host, at, len);
-	} else if(strncmp(req->header_next, "Origin", 6) == 0) { /* copy the "Origin" header. */
-		req->origin_len = len;
-		req->origin = calloc(len + 1, 1);
-		memcpy(req->origin, at, len);
+	if(strncmp(cx->header_next, "Host", 4) == 0) { /* copy the "Host" header. */
+		cx->host_len = len;
+		cx->host = calloc(len + 1, 1);
+		memcpy(cx->host, at, len);
+	} else if(strncmp(cx->header_next, "Origin", 6) == 0) { /* copy the "Origin" header. */
+		cx->origin_len = len;
+		cx->origin = calloc(len + 1, 1);
+		memcpy(cx->origin, at, len);
+	} else if(strncmp(cx->header_next, "Sec-WebSocket-Key1", 18) == 0) {
+		cx->get.ws1_len = len;
+		cx->get.ws1 = calloc(len + 1, 1);
+		memcpy(cx->get.ws1, at, len);
+	} else if(strncmp(cx->header_next, "Sec-WebSocket-Key2", 18) == 0) {
+		cx->get.ws2_len = len;
+		cx->get.ws2 = calloc(len + 1, 1);
+		memcpy(cx->get.ws2, at, len);
 	}
-	free(req->header_next);
-	req->header_next = NULL;
+	free(cx->header_next);
+	cx->header_next = NULL;
 	return 0;
 }
-
