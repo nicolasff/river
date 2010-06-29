@@ -89,5 +89,5 @@ channel_write(struct channel *channel, const char *data, size_t data_len);
 http_action
 channel_catchup_user(struct channel *channel, struct channel_user *cu, unsigned long long seq);
 
-#endif /* COMETD_CHANNEL_H */
+#endif /* CHANNEL_H */
 

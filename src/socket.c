@@ -120,10 +120,14 @@ cx_remove(struct connection *cx) {
 	/* cleanup */
 	free(cx->host);
 	free(cx->origin);
+	free(cx->get.ws1);
+	free(cx->get.ws2);
 	free(cx->path);
+	free(cx->post);
+
 	if(cx->wsc) {
-		free(cx->wsc);
 		evbuffer_free(cx->wsc->buffer);
+		free(cx->wsc);
 	}
 
 	free(cx->get.name);

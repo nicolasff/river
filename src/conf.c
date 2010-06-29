@@ -53,7 +53,7 @@ conf_read(const char *filename) {
 		conf->ip = strdup("127.0.0.1");
 	}
 	if(!conf->log_file) {
-		conf->log_file = strdup("cometd.conf");
+		conf->log_file = strdup("river.conf");
 	}
 
 	return conf;

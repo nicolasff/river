@@ -1,5 +1,5 @@
-#ifndef COMETD_FILES_H
-#define COMETD_FILES_H
+#ifndef FILES_H
+#define FILES_H
 
 #include "http.h"
 
@@ -10,5 +10,5 @@ int
 file_send(struct connection *cx);
 
 
-#endif /* COMETD_FILES_H */
+#endif /* FILES_H */
 
