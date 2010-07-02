@@ -18,7 +18,6 @@ conf_read(const char *filename) {
 
 	conf = calloc(1, sizeof(struct conf));
 	conf->client_timeout = 30;
-	conf->threads = 8;
 
 	while(!feof(f)) {
 		char buffer[100], *ret;
@@ -40,8 +39,6 @@ conf_read(const char *filename) {
 			conf->port = (short)atoi(ret + 5);
 		} else if(strncmp(ret, "log ", 4) == 0) {
 			conf->log_file = strdup(ret + 4);
-		} else if(strncmp(ret, "threads ", 8) == 0) {
-			conf->threads = (int)atoi(ret + 8);
 		} else if(strncmp(ret, "client_timeout", 14) == 0) {
 			conf->client_timeout = (int)atoi(ret + 14);
 		}

@@ -8,7 +8,6 @@
 #include <event.h>
 #include <sys/socket.h>
 #include <errno.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <arpa/inet.h>
 

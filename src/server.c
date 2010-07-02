@@ -10,7 +10,6 @@
 #include "server.h"
 #include "channel.h"
 #include "socket.h"
-#include "thread.h"
 #include "http-parser/http_parser.h"
 #include "http.h"
 #include "http_dispatch.h"
@@ -23,15 +22,14 @@ extern char flash_xd[];
 extern int flash_xd_len;
 
 int
-on_client_data(struct connection *cx, void *nil) {
-	(void)nil;
+on_client_data(struct connection *cx) {
+
 	int nb_read;
 	http_parser parser;
 	http_parser_settings settings;
 	http_action action;
 
 	char buffer[64*1024]; 
-	memset(buffer, 0, sizeof(buffer));
 
 	if(cx->state == CX_CONNECTED_WEBSOCKET) {
 		if(ws_client_msg(cx) == 0) {
@@ -40,6 +38,8 @@ on_client_data(struct connection *cx, void *nil) {
 			return -1;
 		}
 	}
+
+	memset(buffer, 0, sizeof(buffer));
 	nb_read = read(cx->fd, buffer, sizeof(buffer));
 	if(nb_read <= 0) {
 		return nb_read;
@@ -97,11 +97,60 @@ on_client_data(struct connection *cx, void *nil) {
 }
 
 void
-server_run(int fd, int threads, struct channel *chan) {
+server_run(int fd) {
 
 	/* printf("running with fd=%d\n", fd); */
 
-	struct threaded_queue *tq = tq_new(fd, threads, on_client_data, chan);
-	tq_loop(tq);
+	struct event ev;
+	struct event_base *base = event_base_new();
+
+	event_set(&ev, fd, EV_READ | EV_PERSIST, on_possible_accept, base);
+	event_base_set(base, &ev);
+	event_add(&ev, NULL);
+
+	event_base_dispatch(base);
 }
 
+
+void
+on_possible_accept(int fd, short event, void *ptr) {
+	(void)event;
+
+	struct event_base *base = ptr;
+	struct sockaddr_in addr;
+	socklen_t addr_sz = sizeof(addr);
+	int client_fd;
+
+	client_fd = accept(fd, (struct sockaddr*)&addr, &addr_sz);
+	//printf("accepted client_fd=%d\n", client_fd);
+	struct connection *cx = calloc(sizeof(struct connection), 1);
+	cx->fd = client_fd;
+	cx->base = base;
+
+	/* wait for new data */
+	cx->ev = malloc(sizeof(struct event));
+	event_set(cx->ev, cx->fd, EV_READ, on_available_data, cx);
+	event_base_set(base, cx->ev);
+	event_add(cx->ev, NULL);
+}
+
+void
+on_available_data(int fd, short event, void *ptr) {
+	(void)event;
+	(void)fd;
+
+	int ret;
+	struct connection *cx = ptr;
+
+	// printf("tq_on_available_data(cx=%p)\n", cx);
+
+	ret = on_client_data(cx);
+	if(ret <= 0) {
+		cx_remove(cx);
+	} else {
+		/* start monitoring the connection */
+		event_set(cx->ev, fd, EV_READ, on_available_data, cx);
+		event_base_set(cx->base, cx->ev);
+		event_add(cx->ev, NULL);
+	}
+}

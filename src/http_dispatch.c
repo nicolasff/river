@@ -64,10 +64,8 @@ http_dispatch_read(struct connection *cx, start_function start_fun, write_functi
 		cx->channel = channel_new(cx->get.name);
 	}
 
-	CHANNEL_LOCK(cx->channel);
 	cx->cu = channel_new_connection(cx, cx->get.keep, cx->get.jsonp, write_fun);
 	if(-1 == start_fun(cx)) {
-		CHANNEL_UNLOCK(cx->channel);
 		return HTTP_DISCONNECT;
 	}
 
@@ -83,7 +81,6 @@ http_dispatch_read(struct connection *cx, start_function start_fun, write_functi
 		ret = channel_catchup_user(cx->channel, cx->cu, cx->get.seq);
 		/* case 1 */
 		if(ret == HTTP_DISCONNECT) {
-			CHANNEL_UNLOCK(cx->channel);
 			return HTTP_DISCONNECT;
 		} else {
 			/* case 2*/
@@ -101,7 +98,6 @@ http_dispatch_read(struct connection *cx, start_function start_fun, write_functi
 		struct user_timeout *ut;
 
 		cx->cu->free_on_remove = 0;
-		CHANNEL_UNLOCK(cx->channel);
 
 		ut = calloc(1, sizeof(struct user_timeout));
 		ut->cu = cx->cu;
@@ -115,11 +111,6 @@ http_dispatch_read(struct connection *cx, start_function start_fun, write_functi
 		timeout_set(&ut->ev, on_client_too_old, ut);
 		event_base_set(cx->base, &ut->ev);
 		timeout_add(&ut->ev, &ut->tv);
-	} else {
-#endif
-		CHANNEL_UNLOCK(cx->channel);
-#if 0
-	}
 #endif
 
 	return ret;

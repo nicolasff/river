@@ -28,7 +28,7 @@ main(int argc, char *argv[]) {
 	int fd = socket_setup(cfg->ip, cfg->port);
 	channel_init();
 
-	server_run(fd, cfg->threads, NULL);
+	server_run(fd);
 
 	return EXIT_SUCCESS;
 }

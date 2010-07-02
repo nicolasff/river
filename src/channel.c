@@ -18,12 +18,10 @@
  * This is the hash table of all channels.
  */
 static dict *__channels = NULL;
-static pthread_mutex_t channels_lock;
 
 void
 channel_init() {
 	if(NULL == __channels) {
-		pthread_mutex_init(&channels_lock, NULL);
 		__channels = dictCreate(&dictTypeCopyNoneFreeNone, NULL);
 
 	}
@@ -52,14 +50,8 @@ channel_new(const char *name) {
 		return NULL;
 	}
 
-
-	/* channel lock */
-	pthread_mutex_init(&channel->lock, NULL);
-
 	/* add channel to a global list of channels */
-	pthread_mutex_lock(&channels_lock);
 	dictAdd(__channels, channel->name, channel, 0);
-	pthread_mutex_unlock(&channels_lock);
 
 	return channel;
 }
@@ -142,8 +134,6 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 	struct channel_user *cu;
 	struct channel_message *msg;
 
-	CHANNEL_LOCK(channel);
-
 	/* get next pointer to a log message. */
 	msg = &channel->log_buffer[channel->log_pos];
 
@@ -189,7 +179,6 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 		}
 		cu = next;
 	}
-	CHANNEL_UNLOCK(channel);
 }
 
 http_action

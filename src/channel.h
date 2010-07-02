@@ -1,28 +1,9 @@
 #ifndef CHANNEL_H
 #define CHANNEL_H
 
-#include <pthread.h>
 #include "http.h"
 
-#define CHANNEL_LOCK(c)(pthread_mutex_lock(&c->lock))
-#define CHANNEL_UNLOCK(c)(pthread_mutex_unlock(&c->lock))
-
 struct connection;
-
-#if 0
-struct channel {
-
-	struct connection *user_list;
-
-	pthread_mutex_t lock;
-};
-
-struct channel *
-channel_new();
-
-void
-channel_add_cx(struct channel *chan, struct connection *cx);
-#endif
 
 struct channel_user {
 
@@ -58,8 +39,6 @@ struct channel {
 
 	struct channel_message *log_buffer;
 	int log_pos;
-
-	pthread_mutex_t lock;
 };
 
 void

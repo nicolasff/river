@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <event.h>
 #include <unistd.h>
-#include <pthread.h>
 #include <event.h>
 
 #include "socket.h"
@@ -92,15 +91,7 @@ cx_is_broken(int fd, short event, void *ptr) {
 	struct connection *cx = ptr;
 	
 	printf("fd=%d closed (cx=%p)\n", fd, cx);
-	struct channel *chan = cx->channel;
-	if(chan) {
-		CHANNEL_LOCK(chan);
-	}
-	/* printf("calling cx_remove(%p) from %s:%d\n", cx, __FILE__, __LINE__); */
 	cx_remove(cx);
-	if(chan) {
-		CHANNEL_UNLOCK(chan);
-	}
 }
 
 void
@@ -108,7 +99,6 @@ cx_remove(struct connection *cx) {
 	close(cx->fd);
 
 	if(cx->cu) {
-		/* channel MUST be locked when cx_remove is called. */
 		channel_del_connection(cx->channel, cx->cu);
 	}
 

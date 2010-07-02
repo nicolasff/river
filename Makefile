@@ -1,7 +1,7 @@
 OUT=river
-OBJS=src/server.o src/socket.o src/river.o src/channel.o src/http-parser/http_parser.o src/thread.o src/http.o src/http_dispatch.o src/dict.o src/json.o src/websocket.o src/files.o src/md5.o src/conf.o
-CFLAGS=-O3 -Wall -Wextra -Isrc/http-parser
-LDFLAGS=-levent -lpthread
+OBJS=src/server.o src/socket.o src/river.o src/channel.o src/http-parser/http_parser.o src/http.o src/http_dispatch.o src/dict.o src/json.o src/websocket.o src/files.o src/md5.o src/conf.o
+CFLAGS=-O0 -ggdb -Wall -Wextra -Isrc/http-parser
+LDFLAGS=-levent
 
 all: $(OUT) Makefile
 
