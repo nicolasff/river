@@ -29,6 +29,7 @@ main(int argc, char *argv[]) {
 	channel_init();
 
 	server_run(fd);
+	printf("bye\n");
 
 	return EXIT_SUCCESS;
 }

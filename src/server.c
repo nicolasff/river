@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 
 #include "server.h"
 #include "channel.h"
@@ -21,6 +22,9 @@ struct queue_t *q;
 extern char flash_xd[];
 extern int flash_xd_len;
 
+/**
+ * Got client data on a connection.
+ */
 int
 on_client_data(struct connection *cx) {
 
@@ -31,7 +35,7 @@ on_client_data(struct connection *cx) {
 
 	char buffer[64*1024]; 
 
-	if(cx->state == CX_CONNECTED_WEBSOCKET) {
+	if(cx->state == CX_CONNECTED_WEBSOCKET) { /* already connected WS */
 		if(ws_client_msg(cx) == 0) {
 			return 1;
 		} else {
@@ -104,11 +108,17 @@ server_run(int fd) {
 	struct event ev;
 	struct event_base *base = event_base_new();
 
+	/* ignore sigpipe */
+#ifdef SIGPIPE
+	signal(SIGPIPE, SIG_IGN);
+#endif
+
 	event_set(&ev, fd, EV_READ | EV_PERSIST, on_possible_accept, base);
 	event_base_set(base, &ev);
 	event_add(&ev, NULL);
 
 	event_base_dispatch(base);
+	printf("event_base_dispatch returned...\n");
 }
 
 
@@ -123,12 +133,9 @@ on_possible_accept(int fd, short event, void *ptr) {
 
 	client_fd = accept(fd, (struct sockaddr*)&addr, &addr_sz);
 	//printf("accepted client_fd=%d\n", client_fd);
-	struct connection *cx = calloc(sizeof(struct connection), 1);
-	cx->fd = client_fd;
-	cx->base = base;
+	struct connection *cx = cx_new(client_fd, base);
 
 	/* wait for new data */
-	cx->ev = malloc(sizeof(struct event));
 	event_set(cx->ev, cx->fd, EV_READ, on_available_data, cx);
 	event_base_set(base, cx->ev);
 	event_add(cx->ev, NULL);
@@ -141,8 +148,6 @@ on_available_data(int fd, short event, void *ptr) {
 
 	int ret;
 	struct connection *cx = ptr;
-
-	// printf("tq_on_available_data(cx=%p)\n", cx);
 
 	ret = on_client_data(cx);
 	if(ret <= 0) {

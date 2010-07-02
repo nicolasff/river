@@ -76,22 +76,14 @@ socket_setup(const char *ip, short port) {
 }
 
 struct connection *
-cx_new(int fd) {
+cx_new(int fd, struct event_base *base) {
 	struct connection *cx = calloc(sizeof(struct connection), 1);
+
 	cx->fd = fd;
+	cx->base = base;
+	cx->ev = malloc(sizeof(struct event));
 
 	return cx;
-}
-
-void
-cx_is_broken(int fd, short event, void *ptr) {
-	(void)event;
-	(void)fd;
-
-	struct connection *cx = ptr;
-	
-	printf("fd=%d closed (cx=%p)\n", fd, cx);
-	cx_remove(cx);
 }
 
 void
@@ -108,11 +100,12 @@ cx_remove(struct connection *cx) {
 	}
 
 	/* cleanup */
-	free(cx->host);
-	free(cx->origin);
-	free(cx->get.ws1);
-	free(cx->get.ws2);
+	free(cx->headers.host);
+	free(cx->headers.origin);
 	free(cx->path);
+
+	free(cx->headers.ws1);
+	free(cx->headers.ws2);
 	free(cx->post);
 
 	if(cx->wsc) {
@@ -126,13 +119,5 @@ cx_remove(struct connection *cx) {
 	free(cx->get.domain);
 
 	free(cx);
-}
-
-void
-cx_monitor(struct connection *cx, struct event_base *base) {
-	cx->ev = calloc(sizeof(struct event), 1);
-	event_set(cx->ev, cx->fd, EV_READ, cx_is_broken, cx);
-	event_base_set(base, cx->ev);
-	event_add(cx->ev, NULL);
 }
 

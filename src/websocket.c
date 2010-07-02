@@ -36,7 +36,8 @@ ws_start(struct connection *cx) {
 		"Origin: http://%s\r\n"
 		"\r\n";
 	size_t sz;
-	if(!cx->get.name || !cx->origin_len || !cx->host_len || !cx->get.ws1_len || !cx->get.ws2_len) {
+	if(!cx->get.name || !cx->headers.origin_len || !cx->headers.host_len
+		|| !cx->headers.ws1_len || !cx->headers.ws2_len) {
 		return -1;
 	}
 
@@ -47,12 +48,14 @@ ws_start(struct connection *cx) {
 	/* This code uses the WebSocket specification from May 23, 2010.
 	 * The latest copy is available at http://www.whatwg.org/specs/web-socket-protocol/
 	 */
-	sz = sizeof(template) + cx->origin_len + cx->host_len * 2 + cx->get.name_len
+	sz = sizeof(template) + cx->headers.origin_len + cx->headers.host_len * 2
+		+ cx->get.name_len
 		+ sizeof(handshake) - 1
 		- (2 + 2 + 2 + 2); /* %s must be removed from the template size */
 
 	buffer = calloc(sz, 1);
-	sprintf(buffer, template, cx->origin, cx->host, cx->get.name, cx->host);
+	sprintf(buffer, template, cx->headers.origin, cx->headers.host,
+			cx->get.name, cx->headers.host);
 	memcpy(buffer + sz - sizeof(handshake), handshake, sizeof(handshake));
 	ret = write(cx->fd, buffer, sz);
 	free(buffer);
@@ -84,8 +87,8 @@ ws_handshake(struct connection *cx, unsigned char *out) {
 	md5_state_t ctx;
 
 	// websocket handshake
-	uint32_t number_1 = ws_read_key(cx->get.ws1);
-	uint32_t number_2 = ws_read_key(cx->get.ws2);
+	uint32_t number_1 = ws_read_key(cx->headers.ws1);
+	uint32_t number_2 = ws_read_key(cx->headers.ws2);
 
 	if(cx->post_len != 8) {
 		return -1;

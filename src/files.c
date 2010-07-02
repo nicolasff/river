@@ -93,8 +93,8 @@ Comet = {\
 	http_streaming_chunk(cx, buffer_start, sizeof(buffer_start)-1);
 
 	/* then current host */
-	if(cx->host) {
-		http_streaming_chunk(cx, cx->host, cx->host_len);
+	if(cx->headers.host) {
+		http_streaming_chunk(cx, cx->headers.host, cx->headers.host_len);
 	}
 
 	/* then common domain */

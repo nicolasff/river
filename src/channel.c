@@ -23,7 +23,6 @@ void
 channel_init() {
 	if(NULL == __channels) {
 		__channels = dictCreate(&dictTypeCopyNoneFreeNone, NULL);
-
 	}
 }
 
@@ -66,6 +65,9 @@ channel_find(const char *name) {
 	return NULL;
 }
 
+/**
+ * Delete a channel
+ */
 void
 channel_free(struct channel * p) {
 
@@ -91,6 +93,9 @@ channel_new_connection(struct connection *cx, int keep_connected, const char *js
 	return cu;
 }
 
+/**
+ * Add connection to a channel
+ */
 void
 channel_add_connection(struct channel *channel, struct channel_user *cu) {
 
