@@ -1,13 +1,7 @@
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
-#include <errno.h>
 #include <syslog.h>
 #include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <event.h>
 #include <unistd.h>
 #include <event.h>
 

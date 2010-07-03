@@ -1,6 +1,5 @@
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -15,7 +14,7 @@ static void
 file_send_iframe(struct connection *cx) {
 
 	static char *iframe_buffer = NULL;
-	static size_t iframe_buffer_len = -1;
+	static size_t iframe_buffer_len;
 
 	struct stat st;
 	int ret, fp;
@@ -139,4 +138,3 @@ file_send(struct connection *cx) {
 
 	return 0;
 }
-

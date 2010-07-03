@@ -1,23 +1,14 @@
 #include <event.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
 
 #include "server.h"
-#include "channel.h"
 #include "socket.h"
-#include "http-parser/http_parser.h"
-#include "http.h"
 #include "http_dispatch.h"
 #include "websocket.h"
-
-struct event_base *base;
-struct queue_t *q;
 
 extern char flash_xd[];
 extern int flash_xd_len;
@@ -103,8 +94,6 @@ on_client_data(struct connection *cx) {
 void
 server_run(int fd) {
 
-	/* printf("running with fd=%d\n", fd); */
-
 	struct event ev;
 	struct event_base *base = event_base_new();
 
@@ -118,7 +107,6 @@ server_run(int fd) {
 	event_add(&ev, NULL);
 
 	event_base_dispatch(base);
-	printf("event_base_dispatch returned...\n");
 }
 
 
@@ -132,7 +120,6 @@ on_possible_accept(int fd, short event, void *ptr) {
 	int client_fd;
 
 	client_fd = accept(fd, (struct sockaddr*)&addr, &addr_sz);
-	//printf("accepted client_fd=%d\n", client_fd);
 	struct connection *cx = cx_new(client_fd, base);
 
 	/* wait for new data */
@@ -144,7 +131,6 @@ on_possible_accept(int fd, short event, void *ptr) {
 void
 on_available_data(int fd, short event, void *ptr) {
 	(void)event;
-	(void)fd;
 
 	int ret;
 	struct connection *cx = ptr;

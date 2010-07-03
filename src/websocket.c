@@ -1,14 +1,7 @@
-#include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <event.h>
 #include <string.h>
-#include <fcntl.h>
-#include <syslog.h>
-#include <event.h>
-#include <sys/socket.h>
-#include <errno.h>
-#include <stdio.h>
 #include <arpa/inet.h>
 
 #include "websocket.h"
