@@ -71,7 +71,17 @@ channel_find(const char *name) {
 void
 channel_free(struct channel * p) {
 
+	int i;
 	free(p->name);
+
+	/* clear logs */
+	for(i = 0; i < LOG_BUFFER_SIZE; ++i) {
+		free(p->log_buffer[i].data);
+	}
+	free(p->log_buffer);
+
+	/* there are no users to remove */
+
 	free(p);
 }
 
@@ -233,5 +243,38 @@ channel_catchup_user(struct channel *channel, struct channel_user *cu, unsigned 
 		return HTTP_DISCONNECT;
 	}
 	return HTTP_KEEP_CONNECTED;
+}
+
+void
+channel_clean_idle() {
+
+	struct idle_chan {
+		struct channel *channel;
+		struct idle_chan *next;
+	};
+
+	struct idle_chan *dead_list = NULL, *ic;
+
+	dictIterator *di = dictGetIterator(__channels);
+	dictEntry *de;
+	while((de = dictNext(di))) {
+		struct channel *channel = (struct channel*)de->val;
+		if(channel->user_list == NULL) {
+			struct idle_chan *ic = calloc(1, sizeof(*ic));
+			ic->channel = channel;
+			ic->next = dead_list;
+			dead_list = ic;
+		}
+	}
+	dictReleaseIterator(di);
+
+	/* release channels now */
+	for(ic = dead_list; ic;) {
+		struct idle_chan *next = ic->next;
+		dictDelete(__channels, ic->channel->name);
+		channel_free(ic->channel);
+		free(ic);
+		ic = next;
+	}
 }
 

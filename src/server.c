@@ -6,12 +6,15 @@
 #include <signal.h>
 
 #include "server.h"
+#include "channel.h"
 #include "socket.h"
 #include "http_dispatch.h"
 #include "websocket.h"
 
 extern char flash_xd[];
 extern int flash_xd_len;
+
+#define CHANNEL_CLEANUP_TIMER	1
 
 /**
  * Got client data on a connection.
@@ -91,11 +94,37 @@ on_client_data(struct connection *cx) {
 	}
 }
 
+/* Called to clean empty channels. */
+void
+on_channel_cleanup(int fd, short event, void *ptr) {
+
+	(void)fd;
+	(void)event;
+	struct cleanup_timer *ct = ptr;
+
+	channel_clean_idle();
+
+	/* re-add the timer */
+	cleanup_reset(ct);
+}
+
+void
+cleanup_reset(struct cleanup_timer *ct) {
+	evtimer_set(&ct->ev, on_channel_cleanup, ct);
+	event_base_set(ct->base, &ct->ev);
+	event_add(&ct->ev, &ct->tv);
+}
+
 void
 server_run(int fd) {
 
 	struct event ev;
 	struct event_base *base = event_base_new();
+
+	struct cleanup_timer ct;
+	ct.base = base;
+	ct.tv.tv_sec = CHANNEL_CLEANUP_TIMER;
+	ct.tv.tv_usec = 0;
 
 	/* ignore sigpipe */
 #ifdef SIGPIPE
@@ -105,6 +134,8 @@ server_run(int fd) {
 	event_set(&ev, fd, EV_READ | EV_PERSIST, on_possible_accept, base);
 	event_base_set(base, &ev);
 	event_add(&ev, NULL);
+
+	cleanup_reset(&ct);
 
 	event_base_dispatch(base);
 }
