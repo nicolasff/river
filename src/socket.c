@@ -76,6 +76,7 @@ cx_new(int fd, struct event_base *base) {
 	cx->fd = fd;
 	cx->base = base;
 	cx->ev = malloc(sizeof(struct event));
+	memset(&cx->get, 0, sizeof(cx->get));
 
 	return cx;
 }

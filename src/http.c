@@ -140,11 +140,13 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 	struct connection *cx = parser->data;
 
 	const char *p = strchr(at, '?');
+	if(p) {
+		p++;
+	} else {
+		p = at;
+	}
 
-	if(!p) return 0;
-	p++;
-
-	memset(&cx->get, 0, sizeof(cx->get));
+	/* memset(&cx->get, 0, sizeof(cx->get)); */
 	cx->get.keep = 1;
 
 
@@ -184,16 +186,16 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 		memcpy(val, p, val_len);
 
 		/* add to the GET dictionary */
-		if(strncmp(key, "name", 4) == 0) {
+		if(strncmp(key, "name", 4) == 0 && cx->get.name == NULL) {
 			cx->get.name = val;
 			cx->get.name_len = val_len;
-		} else if(strncmp(key, "data", 4) == 0) {
+		} else if(strncmp(key, "data", 4) == 0 && cx->get.data == NULL) {
 			cx->get.data = val;
 			cx->get.data_len = val_len;
-		} else if(strncmp(key, "jsonp", 5) == 0) {
+		} else if(strncmp(key, "jsonp", 5) == 0 && cx->get.jsonp == NULL) {
 			cx->get.jsonp = val;
 			cx->get.jsonp_len = val_len;
-		} else if(strncmp(key, "domain", 6) == 0) {
+		} else if(strncmp(key, "domain", 6) == 0 && cx->get.domain == NULL) {
 			cx->get.domain = val;
 			cx->get.domain_len = val_len;
 		} else if(strncmp(key, "seq", 3) == 0) {

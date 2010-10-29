@@ -61,4 +61,3 @@ The following example considers the page to be at `example.com`, and the comet s
 * Test support for Flash’s `<policy-file-request>\0` in the WebSocket implementation.
 * Fix automatic dead channel deletion to occur only on channels that have been deserted for a specific time.
 * Remove dependency on dict.c in channels, use own HT.
-* Use better HTTP verbs.

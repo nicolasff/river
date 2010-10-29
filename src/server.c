@@ -45,8 +45,10 @@ on_client_data(struct connection *cx) {
 
 	/* got data, setup http parser */
 	memset(&settings, 0, sizeof(http_parser_settings));
+	parser.flags = 0;
 	settings.on_path = http_parser_onpath;
 	settings.on_url = http_parser_onurl;
+	settings.on_body = http_parser_onurl;
 	settings.on_header_field = http_parser_on_header_field;
 	settings.on_header_value = http_parser_on_header_value;
 
@@ -61,7 +63,7 @@ on_client_data(struct connection *cx) {
 		 */
 		http_parser_init(&parser, HTTP_REQUEST);
 		parser.data = cx;
-		int nb_parsed = http_parser_execute(&parser, settings, buffer, nb_read);
+		int nb_parsed = http_parser_execute(&parser, &settings, buffer, nb_read);
 
 		if(nb_parsed  < nb_read) {
 			size_t post_len = nb_read - nb_parsed - 1;
