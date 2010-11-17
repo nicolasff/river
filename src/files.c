@@ -73,19 +73,19 @@ file_send_libjs(struct connection *cx) {
 
 	char buffer_start[] = "var comet_domain = '";
 	char buffer_domain[] = "'; var common_domain = '";
-	char buffer_js[] = "';\
-Comet = {\
-	init: function(cbLoaded) {\
-		var iframe = document.createElement('iframe');\
-		iframe.src = 'http://' + comet_domain + '/iframe?domain=' + common_domain;\
-		iframe.setAttribute('style', 'display: none');\
-		document.body.appendChild(iframe);\
-\
-		iframe.onload = function() {\
-			Comet.Client = function() { return new iframe.contentWindow.CometClient(comet_domain);};\
-			cbLoaded();\
-		};\
-	}\
+	char buffer_js[] = "';\n\
+Comet = {\n\
+	init: function(cbLoaded) {\n\
+		var iframe = document.createElement('iframe');\n\
+		iframe.src = 'http://' + comet_domain + '/iframe?domain=' + common_domain;\n\
+		iframe.setAttribute('style', 'display: none');\n\
+\n\
+		iframe.onload = function() {\n\
+			Comet.Client = function() { return new iframe.contentWindow.CometClient(comet_domain);};\n\
+			cbLoaded();\n\
+		};\n\
+		document.body.appendChild(iframe);\n\
+	}\n\
 };";
 
 	http_streaming_start_ct(cx, 200, "OK", "text/javascript");

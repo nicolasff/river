@@ -93,7 +93,11 @@ function CometClient(host){
 		xhr.send(null);
 	}
 
-	this.connect = function(channel, onMsg) {
+	this.connect = function(channel, onMsg, seq) {
+
+		if(typeof(seq) != "undefined") {
+			this.seq = seq;
+		}
 
 		if(this.hasWebSocket) {
 			return this.wsConnect(channel, onMsg);
@@ -117,9 +121,11 @@ function CometClient(host){
 		};
 		this.socket.onclose = function () {
 			var comet = this;
-			window.setTimeout(function() {
-				comet.wsConnect(channel, onMsg);
-			}, 1000);
+			try {
+				window.setTimeout(function() {
+					comet.wsConnect(channel, onMsg);
+				}, 1000);
+			} catch(e) {}
 		};
 	}
 
@@ -137,7 +143,10 @@ function CometClient(host){
 			comet.reconnectionTimeout = window.setTimeout(function() {comet.disconnect(); comet.connect(channel, onMsg);}, 25000);
 		}
 
-		var url = "http://"+this.host+"/subscribe?name="+channel+"&keep="+this.canStream+"&seq="+this.seq;
+		var url = "http://"+this.host+"/subscribe?name="+channel+"&keep="+this.canStream;
+		if(this.seq >= 0) {
+			url += "&seq="+this.seq;
+		}
 		comet.xhr.open("get", url, true);
 		comet.xhr.onreadystatechange = function() {
 
@@ -146,18 +155,20 @@ function CometClient(host){
 			}
 
 			if(comet.xhr.readyState == 4 && comet.xhr.status != 200) { // error...
-				window.setTimeout(function() {comet.connect(channel, onMsg);}, 1000); // reconnect soon.
+				try {
+					window.setTimeout(function() {comet.connect(channel, onMsg);}, 1000); // reconnect soon.
+				} catch(e) {}
 				return;
 			}
 
 			var data = comet.xhr.responseText;
 			if(comet.xhr.readyState === 3 || comet.xhr.readyState == 4) {
-				// console.log("data.length=", data.length);
 				if(data.length == 0) {
-					// console.log("readyState=", comet.xhr.readyState, ", length=0");
-					setTimeout(function() {
-						comet.connect(channel, onMsg);
-					}, 1000); // reconnect soon.
+					try {
+						window.setTimeout(function() {
+							comet.connect(channel, onMsg);
+						}, 1000); // reconnect soon.
+					} catch(e) {}
 					return;
 				}
 
@@ -193,9 +204,11 @@ function CometClient(host){
 						}
 					} catch(e) { 
 						comet.xhr.abort(); // avoid duplicates upon reconnection
-						setTimeout(function() {
-							comet.connect(channel, onMsg);
-						}, 1000); // reconnect soon.
+						try{
+							window.setTimeout(function() {
+								comet.connect(channel, onMsg);
+							}, 1000); // reconnect soon.
+						} catch(e) {}
 					}
 					
 
@@ -209,9 +222,11 @@ function CometClient(host){
 			if(comet.xhr.readyState == 4) { // reconnect
 				// if no streaming capability, reconnect directly.
 				if(this.canStream) {
-					window.setTimeout(function() {
-						comet.connect(channel, onMsg);
-					}, 1000);
+					try {
+						window.setTimeout(function() {
+							comet.connect(channel, onMsg);
+						}, 1000);
+					} catch(e) {}
 				} else {
 					comet.connect(channel, onMsg);
 				}
