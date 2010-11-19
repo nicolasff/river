@@ -209,6 +209,7 @@ function CometClient(host){
 								comet.connect(channel, onMsg);
 							}, 1000); // reconnect soon.
 						} catch(e) {}
+						return;
 					}
 					
 
@@ -227,6 +228,7 @@ function CometClient(host){
 							comet.connect(channel, onMsg);
 						}, 1000);
 					} catch(e) {}
+					return;
 				} else {
 					comet.connect(channel, onMsg);
 				}
