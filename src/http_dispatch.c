@@ -8,6 +8,7 @@
 #include "channel.h"
 #include "websocket.h"
 #include "files.h"
+#include "mem.h"
 
 static int
 start_fun_http(struct connection *cx) {
@@ -99,7 +100,7 @@ http_dispatch_read(struct connection *cx, start_function start_fun, write_functi
 
 		cx->cu->free_on_remove = 0;
 
-		ut = calloc(1, sizeof(struct user_timeout));
+		ut = rcalloc(1, sizeof(struct user_timeout));
 		ut->cu = cx->cu;
 		ut->channel = cx->channel;
 

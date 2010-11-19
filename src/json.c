@@ -1,4 +1,5 @@
 #include "json.h"
+#include "mem.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -17,7 +18,7 @@ json_escape(const char *data, size_t len, size_t *out_len) {
 		j++;
 	}
 	/* allocate output buffer */
-	ret = calloc(1 + j, 1);
+	ret = rcalloc(1 + j, 1);
 
 	j = 0;
 	/* copy into output buffer */
@@ -40,7 +41,7 @@ char *
 json_wrap(const char *data, size_t data_len, const char *jsonp, size_t jsonp_len, size_t *out) {
 
 	size_t sz = jsonp_len + 1 + data_len + 4;
-	char *buffer = calloc(sz + 1, 1);
+	char *buffer = rcalloc(sz + 1, 1);
 
 	memcpy(buffer, jsonp, jsonp_len);
 	memcpy(buffer + jsonp_len, "(", 1);
@@ -83,7 +84,7 @@ json_msg(const char *channel, size_t channel_len,
 		+ data_len
 		+ sizeof(fmt3)-1;
 
-	pos = buffer = calloc(needed + 1, 1);
+	pos = buffer = rcalloc(needed + 1, 1);
 	buffer[needed] = 0;
 
 	memcpy(pos, fmt0, sizeof(fmt0)-1);
@@ -110,8 +111,8 @@ json_msg(const char *channel, size_t channel_len,
 		*out_len = needed;
 	}
 
-	free(esc_data);
-	free(esc_channel);
+	rfree(esc_data);
+	rfree(esc_channel);
 
 	return buffer;
 }

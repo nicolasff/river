@@ -9,6 +9,7 @@
 #include "server.h"
 #include "socket.h"
 #include "md5.h"
+#include "mem.h"
 
 /**
  * Called when a client connects using websocket, does the handshake.
@@ -46,14 +47,14 @@ ws_start(struct connection *cx) {
 		+ sizeof(handshake) - 1
 		- (2 + 2 + 2 + 2); /* %s must be removed from the template size */
 
-	buffer = calloc(sz, 1);
+	buffer = rcalloc(sz, 1);
 	sprintf(buffer, template, cx->headers.origin, cx->headers.host,
 			cx->get.name, cx->headers.host);
 	memcpy(buffer + sz - sizeof(handshake), handshake, sizeof(handshake));
 	ret = write(cx->fd, buffer, sz);
-	free(buffer);
+	rfree(buffer);
 
-	struct ws_client *wsc = calloc(1, sizeof(struct ws_client));
+	struct ws_client *wsc = rcalloc(1, sizeof(struct ws_client));
 	wsc->buffer = evbuffer_new();
 	cx->wsc = wsc;
 
@@ -106,7 +107,7 @@ ws_write(struct connection *cx, const char *buf, size_t len) {
 
 	int ret;
 
-	char *tmp = malloc(2+len);
+	char *tmp = rmalloc(2+len);
 
 	tmp[0] = 0;
 	tmp[len+1] = 0xff;
@@ -115,10 +116,10 @@ ws_write(struct connection *cx, const char *buf, size_t len) {
 	ret = write(cx->fd, tmp, len+2);
 
 	if(ret != (int)len+2) {
-		free(tmp);
+		rfree(tmp);
 		return -1;
 	}
-	free(tmp);
+	rfree(tmp);
 	return len;
 }
 

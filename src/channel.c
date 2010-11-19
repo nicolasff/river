@@ -7,6 +7,7 @@
 #include "dict.h"
 #include "json.h"
 #include "socket.h"
+#include "mem.h"
 
 #define LOG_BUFFER_SIZE	20
 
@@ -29,23 +30,23 @@ channel_init() {
 struct channel *
 channel_new(const char *name) {
 
-	struct channel *channel = calloc(1, sizeof(struct channel));
+	struct channel *channel = rcalloc(1, sizeof(struct channel));
 
 	if(NULL == channel) {
 		return NULL;
 	}
 
-	channel->name = strdup(name);
+	channel->name = rstrdup(name);
 	if(NULL == channel->name) {
-		free(channel);
+		rfree(channel);
 		return NULL;
 	}
 	channel->name_len = strlen(name);
 
-	channel->log_buffer = calloc(LOG_BUFFER_SIZE, sizeof(struct channel_message));
+	channel->log_buffer = rcalloc(LOG_BUFFER_SIZE, sizeof(struct channel_message));
 	if(NULL == channel->log_buffer) {
-		free(channel->name);
-		free(channel);
+		rfree(channel->name);
+		rfree(channel);
 		return NULL;
 	}
 
@@ -72,23 +73,23 @@ void
 channel_free(struct channel * p) {
 
 	int i;
-	free(p->name);
+	rfree(p->name);
 
 	/* clear logs */
 	for(i = 0; i < LOG_BUFFER_SIZE; ++i) {
-		free(p->log_buffer[i].data);
+		rfree(p->log_buffer[i].data);
 	}
-	free(p->log_buffer);
+	rfree(p->log_buffer);
 
 	/* there are no users to remove */
 
-	free(p);
+	rfree(p);
 }
 
 struct channel_user *
 channel_new_connection(struct connection *cx, int keep_connected, const char *jsonp, write_function wfun) {
 
-	struct channel_user *cu = calloc(1, sizeof(struct channel_user));
+	struct channel_user *cu = rcalloc(1, sizeof(struct channel_user));
 	cu->wfun = wfun;
 	cu->cx = cx;
 	cu->free_on_remove = 1;
@@ -96,7 +97,7 @@ channel_new_connection(struct connection *cx, int keep_connected, const char *js
 
 	if(jsonp && *jsonp) {
 		cu->jsonp_len = strlen(jsonp);
-		cu->jsonp = calloc(cu->jsonp_len + 1, 1);
+		cu->jsonp = rcalloc(cu->jsonp_len + 1, 1);
 		memcpy(cu->jsonp, jsonp, cu->jsonp_len);
 	}
 
@@ -138,8 +139,8 @@ channel_del_connection(struct channel *channel, struct channel_user *cu) {
 		channel->user_list = NULL;
 	}
 	if(cu->free_on_remove) {
-		free(cu->jsonp);
-		free(cu);
+		rfree(cu->jsonp);
+		rfree(cu);
 	}
 }
 
@@ -155,7 +156,7 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 	/* use channel sequence number */
 	msg->seq = ++(channel->seq);
 
-	free(msg->data); /* free old log message */
+	rfree(msg->data); /* free old log message */
 
 	/* copy log data */
 	msg->data = json_msg(channel->name, channel->name_len,
@@ -184,7 +185,7 @@ channel_write(struct channel *channel, const char *data, size_t data_len) {
 
 		ret = cu->wfun(cu->cx, buffer, sz);
 		if(cu->jsonp) {
-			free(buffer);
+			rfree(buffer);
 		}
 
 		if(!cu->keep_connected) {
@@ -260,7 +261,7 @@ channel_clean_idle() {
 	while((de = dictNext(di))) {
 		struct channel *channel = (struct channel*)de->val;
 		if(channel->user_list == NULL) {
-			struct idle_chan *ic = calloc(1, sizeof(*ic));
+			struct idle_chan *ic = rcalloc(1, sizeof(*ic));
 			ic->channel = channel;
 			ic->next = dead_list;
 			dead_list = ic;
@@ -273,7 +274,7 @@ channel_clean_idle() {
 		struct idle_chan *next = ic->next;
 		dictDelete(__channels, ic->channel->name);
 		channel_free(ic->channel);
-		free(ic);
+		rfree(ic);
 		ic = next;
 	}
 }

@@ -5,6 +5,7 @@
 
 #include "http.h"
 #include "socket.h"
+#include "mem.h"
 
 int
 http_response(struct connection *cx, int code, const char *status, const char *data, size_t len) {
@@ -50,12 +51,12 @@ http_response_ct(struct connection *cx, int code, const char *status, const char
 		+ strlen(content_type) + integer_length((int)len)
 		- (2 + 2 + 2 + 3) /* %d %s %s %lu*/
 		+ len;
-	buffer = calloc(sz + 1, 1);
+	buffer = rcalloc(sz + 1, 1);
 	ret = sprintf(buffer, template, code, status, content_type, len);
 	memcpy(buffer + ret, data, len);
 
 	ret = write(cx->fd, buffer, sz);
-	free(buffer);
+	rfree(buffer);
 	return ret;
 }
 
@@ -75,11 +76,11 @@ http_streaming_start_ct(struct connection *cx, int code, const char *status, con
 			"\r\n";
 	sz = sizeof(template)-1 + integer_length(code) + strlen(status)
 		+ strlen(content_type) - (2 + 2 + 2); /* %d %s %s */
-	buffer = calloc(sz + 1, 1);
+	buffer = rcalloc(sz + 1, 1);
 	ret = sprintf(buffer, template, code, status, content_type);
 
 	ret = write(cx->fd, buffer, sz);
-	free(buffer);
+	rfree(buffer);
 }
 
 int
@@ -87,14 +88,14 @@ http_streaming_chunk(struct connection *cx, const char *data, size_t len) {
 
 	int ret;
 	size_t sz = hex_length(len) + 2 + len + 2;
-	char *buffer = calloc(sz + 1, 1);
+	char *buffer = rcalloc(sz + 1, 1);
 
 	ret = sprintf(buffer, "%X\r\n", (unsigned int)len);
 	memcpy(buffer + ret, data, len);
 	memcpy(buffer + ret + len, "\r\n", 2);
 
 	ret = write(cx->fd, buffer, sz);
-	free(buffer);
+	rfree(buffer);
 	if(ret == (int)sz) { /* success */
 		return (int)len;
 	}
@@ -162,14 +163,14 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 
 		/* copy from the previous position to right before the '=' */
 		key_len = eq - p;
-		key = calloc(1 + key_len, 1);
+		key = rcalloc(1 + key_len, 1);
 		memcpy(key, p, key_len);
 
 
 		/* move 1 char to the right, now on data. */
 		p = eq + 1;
 		if(!*p) {
-			free(key);
+			rfree(key);
 			break;
 		}
 
@@ -182,7 +183,7 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 		}
 
 		/* copy data, from after the '=' to here. */
-		val = calloc(1 + val_len, 1);
+		val = rcalloc(1 + val_len, 1);
 		memcpy(val, p, val_len);
 
 		/* add to the GET dictionary */
@@ -201,14 +202,14 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 		} else if(strncmp(key, "seq", 3) == 0) {
 			cx->get.seq = atol(val);
 			cx->get.has_seq = 1;
-			free(val);
+			rfree(val);
 		} else if(strncmp(key, "keep", 4) == 0) {
 			cx->get.keep = atol(val);
-			free(val);
+			rfree(val);
 		} else {
-			free(val);
+			rfree(val);
 		}
-		free(key);
+		rfree(key);
 
 		if(amp) { /* more to come */
 			p = amp + 1;
@@ -228,7 +229,7 @@ http_parser_onpath(http_parser *parser, const char *at, size_t len) {
 
 	struct connection *cx = parser->data;
 
-	cx->path = calloc(1+len, 1);
+	cx->path = rcalloc(1+len, 1);
 	memcpy(cx->path, at, len);
 	cx->path_len = len;
 
@@ -243,7 +244,7 @@ http_parser_on_header_field(http_parser *parser, const char *at, size_t len) {
 
 	struct connection *cx = parser->data;
 
-	cx->header_next = calloc(len+1, 1); /* memorize the last seen */
+	cx->header_next = rcalloc(len+1, 1); /* memorize the last seen */
 	memcpy(cx->header_next, at, len);
 
 	return 0;
@@ -259,22 +260,22 @@ http_parser_on_header_value (http_parser *parser, const char *at, size_t len) {
 
 	if(strncmp(cx->header_next, "Host", 4) == 0) { /* copy the "Host" header. */
 		cx->headers.host_len = len;
-		cx->headers.host = calloc(len + 1, 1);
+		cx->headers.host = rcalloc(len + 1, 1);
 		memcpy(cx->headers.host, at, len);
 	} else if(strncmp(cx->header_next, "Origin", 6) == 0) { /* copy the "Origin" header. */
 		cx->headers.origin_len = len;
-		cx->headers.origin = calloc(len + 1, 1);
+		cx->headers.origin = rcalloc(len + 1, 1);
 		memcpy(cx->headers.origin, at, len);
 	} else if(strncmp(cx->header_next, "Sec-WebSocket-Key1", 18) == 0) {
 		cx->headers.ws1_len = len;
-		cx->headers.ws1 = calloc(len + 1, 1);
+		cx->headers.ws1 = rcalloc(len + 1, 1);
 		memcpy(cx->headers.ws1, at, len);
 	} else if(strncmp(cx->header_next, "Sec-WebSocket-Key2", 18) == 0) {
 		cx->headers.ws2_len = len;
-		cx->headers.ws2 = calloc(len + 1, 1);
+		cx->headers.ws2 = rcalloc(len + 1, 1);
 		memcpy(cx->headers.ws2, at, len);
 	}
-	free(cx->header_next);
+	rfree(cx->header_next);
 	cx->header_next = NULL;
 	return 0;
 }

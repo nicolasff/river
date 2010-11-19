@@ -10,6 +10,7 @@
 #include "socket.h"
 #include "http_dispatch.h"
 #include "websocket.h"
+#include "mem.h"
 
 extern char flash_xd[];
 extern int flash_xd_len;
@@ -69,7 +70,7 @@ on_client_data(struct connection *cx) {
 			size_t post_len = nb_read - nb_parsed - 1;
 
 			cx->post_len = (int)post_len;
-			cx->post = calloc(post_len, 1);
+			cx->post = rcalloc(post_len, 1);
 			memcpy(cx->post, buffer + nb_parsed + 1, post_len);
 		}
 

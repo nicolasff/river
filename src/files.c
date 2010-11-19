@@ -6,6 +6,7 @@
 
 #include "files.h"
 #include "socket.h"
+#include "mem.h"
 
 /**
  * Return generic page for iframe inclusion
@@ -28,7 +29,7 @@ file_send_iframe(struct connection *cx) {
 			return;
 		}
 		iframe_buffer_len = st.st_size;
-		if(!(iframe_buffer = calloc(iframe_buffer_len, 1))) {
+		if(!(iframe_buffer = rcalloc(iframe_buffer_len, 1))) {
 			iframe_buffer_len = -1;
 			return;
 		}
@@ -37,7 +38,7 @@ file_send_iframe(struct connection *cx) {
 		while(remain) {
 			int count = read(fp, iframe_buffer + iframe_buffer_len - remain, remain);
 			if(count <= 0) {
-				free(iframe_buffer);
+				rfree(iframe_buffer);
 				iframe_buffer_len = -1;
 				return;
 			}

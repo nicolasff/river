@@ -8,6 +8,7 @@
 #include "socket.h"
 #include "websocket.h"
 #include "channel.h"
+#include "mem.h"
 
 int server_max_cx;
 static int server_cur_cx = 0;
@@ -81,11 +82,11 @@ cx_new(int fd, struct event_base *base) {
 	}
 	server_cur_cx++;
 
-	cx = calloc(sizeof(struct connection), 1);
+	cx = rcalloc(sizeof(struct connection), 1);
 
 	cx->fd = fd;
 	cx->base = base;
-	cx->ev = malloc(sizeof(struct event));
+	cx->ev = rmalloc(sizeof(struct event));
 	memset(&cx->get, 0, sizeof(cx->get));
 
 	return cx;
@@ -102,28 +103,28 @@ cx_remove(struct connection *cx) {
 
 	if(cx->ev) {
 		event_del(cx->ev);
-		free(cx->ev);
+		rfree(cx->ev);
 	}
 
 	/* cleanup */
-	free(cx->headers.host);
-	free(cx->headers.origin);
-	free(cx->path);
+	rfree(cx->headers.host);
+	rfree(cx->headers.origin);
+	rfree(cx->path);
 
-	free(cx->headers.ws1);
-	free(cx->headers.ws2);
-	free(cx->post);
+	rfree(cx->headers.ws1);
+	rfree(cx->headers.ws2);
+	rfree(cx->post);
 
 	if(cx->wsc) {
 		evbuffer_free(cx->wsc->buffer);
-		free(cx->wsc);
+		rfree(cx->wsc);
 	}
 
-	free(cx->get.name);
-	free(cx->get.data);
-	free(cx->get.jsonp);
-	free(cx->get.domain);
+	rfree(cx->get.name);
+	rfree(cx->get.data);
+	rfree(cx->get.jsonp);
+	rfree(cx->get.domain);
 
-	free(cx);
+	rfree(cx);
 }
 

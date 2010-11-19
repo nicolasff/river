@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "conf.h"
+#include "mem.h"
 
 
 struct conf *
@@ -16,7 +17,7 @@ conf_read(const char *filename) {
 		return NULL;
 	}
 
-	conf = calloc(1, sizeof(struct conf));
+	conf = rcalloc(1, sizeof(struct conf));
 	conf->client_timeout = 30;
 
 	while(!feof(f)) {
@@ -34,11 +35,11 @@ conf_read(const char *filename) {
 		}
 
 		if(strncmp(ret, "ip ", 3) == 0) {
-			conf->ip = strdup(ret + 3);
+			conf->ip = rstrdup(ret + 3);
 		} else if(strncmp(ret, "port ", 5) == 0) {
 			conf->port = (short)atoi(ret + 5);
 		} else if(strncmp(ret, "log ", 4) == 0) {
-			conf->log_file = strdup(ret + 4);
+			conf->log_file = rstrdup(ret + 4);
 		} else if(strncmp(ret, "client_timeout", 14) == 0) {
 			conf->client_timeout = (int)atoi(ret + 14);
 		} else if(strncmp(ret, "max_connections", 15) == 0) {
@@ -49,10 +50,10 @@ conf_read(const char *filename) {
 
 	/* default values */
 	if(!conf->ip) {
-		conf->ip = strdup("127.0.0.1");
+		conf->ip = rstrdup("127.0.0.1");
 	}
 	if(!conf->log_file) {
-		conf->log_file = strdup("river.conf");
+		conf->log_file = rstrdup("river.conf");
 	}
 
 	return conf;
@@ -61,8 +62,8 @@ conf_read(const char *filename) {
 void
 conf_free(struct conf *conf) {
 
-	free(conf->ip);
-	free(conf->log_file);
+	rfree(conf->ip);
+	rfree(conf->log_file);
 
-	free(conf);
+	rfree(conf);
 }

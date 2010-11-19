@@ -1,11 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <syslog.h>
+#include <string.h>
 
 #include "server.h"
 #include "socket.h"
 #include "channel.h"
 #include "conf.h"
+#include "mem.h"
 
 int
 main(int argc, char *argv[]) {
@@ -21,6 +23,11 @@ main(int argc, char *argv[]) {
 		fprintf(stderr, "Could not read config file.\n");
 		return EXIT_FAILURE;
 	}
+
+	char *s = rmalloc(11);
+	memcpy(s, "0123456789", 10);
+	rfree(s);
+
 
 	/* initialize syslog */
 	openlog(cfg->log_file, LOG_CONS | LOG_PID | LOG_NDELAY, LOG_USER);
