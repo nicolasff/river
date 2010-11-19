@@ -12,7 +12,7 @@ struct cleanup_timer {
 };
 
 void
-server_run(int fd);
+server_run(int fd, int max_connections);
 
 void
 cb_available_client_data(int fd, short event, void *ptr);

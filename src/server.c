@@ -118,8 +118,9 @@ cleanup_reset(struct cleanup_timer *ct) {
 }
 
 void
-server_run(int fd) {
+server_run(int fd, int max_connections) {
 
+	extern int server_max_cx; /* counting max number of connections */
 	struct event ev;
 	struct event_base *base = event_base_new();
 
@@ -127,6 +128,9 @@ server_run(int fd) {
 	ct.base = base;
 	ct.tv.tv_sec = CHANNEL_CLEANUP_TIMER;
 	ct.tv.tv_usec = 0;
+
+	/* global connection limiter */
+	server_max_cx = max_connections;
 
 	/* ignore sigpipe */
 #ifdef SIGPIPE
@@ -155,10 +159,14 @@ on_possible_accept(int fd, short event, void *ptr) {
 	client_fd = accept(fd, (struct sockaddr*)&addr, &addr_sz);
 	struct connection *cx = cx_new(client_fd, base);
 
-	/* wait for new data */
-	event_set(cx->ev, cx->fd, EV_READ, on_available_data, cx);
-	event_base_set(base, cx->ev);
-	event_add(cx->ev, NULL);
+	if(cx) {
+		/* wait for new data */
+		event_set(cx->ev, cx->fd, EV_READ, on_available_data, cx);
+		event_base_set(base, cx->ev);
+		event_add(cx->ev, NULL);
+	} else { /* too many connections */
+		close(client_fd);
+	}
 }
 
 void

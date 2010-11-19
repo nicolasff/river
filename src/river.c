@@ -28,7 +28,7 @@ main(int argc, char *argv[]) {
 	int fd = socket_setup(cfg->ip, cfg->port);
 	channel_init();
 
-	server_run(fd);
+	server_run(fd, cfg->max_connections);
 	printf("bye\n");
 
 	return EXIT_SUCCESS;

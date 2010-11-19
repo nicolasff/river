@@ -9,6 +9,8 @@
 #include "websocket.h"
 #include "channel.h"
 
+int server_max_cx;
+static int server_cur_cx = 0;
 
 extern struct dispatcher_info di;
 
@@ -71,7 +73,15 @@ socket_setup(const char *ip, short port) {
 
 struct connection *
 cx_new(int fd, struct event_base *base) {
-	struct connection *cx = calloc(sizeof(struct connection), 1);
+	struct connection *cx;
+
+	/* monitor number of connections */
+	if(server_max_cx && server_cur_cx > server_max_cx) {
+		return NULL;
+	}
+	server_cur_cx++;
+
+	cx = calloc(sizeof(struct connection), 1);
 
 	cx->fd = fd;
 	cx->base = base;
@@ -84,6 +94,7 @@ cx_new(int fd, struct event_base *base) {
 void
 cx_remove(struct connection *cx) {
 	close(cx->fd);
+	server_cur_cx--;
 
 	if(cx->cu) {
 		channel_del_connection(cx->channel, cx->cu);

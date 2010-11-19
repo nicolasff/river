@@ -10,6 +10,8 @@ struct conf {
 	char *log_file;
 
 	int client_timeout;
+
+	int max_connections;
 };
 
 struct conf *

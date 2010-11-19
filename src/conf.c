@@ -41,6 +41,8 @@ conf_read(const char *filename) {
 			conf->log_file = strdup(ret + 4);
 		} else if(strncmp(ret, "client_timeout", 14) == 0) {
 			conf->client_timeout = (int)atoi(ret + 14);
+		} else if(strncmp(ret, "max_connections", 15) == 0) {
+			conf->max_connections = (int)atoi(ret + 15);
 		}
 	}
 	fclose(f);
