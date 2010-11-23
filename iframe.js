@@ -206,7 +206,6 @@ function CometClient(host){
 								if(obj[1].channel == channel) {
 									if(onMsg) {
 										try {
-											console.log(obj[1]);
 											onMsg(obj[1]);
 										} catch(e) {} // ignore client errors
 									}
