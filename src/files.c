@@ -62,7 +62,6 @@ file_send_iframe(struct connection *cx) {
 
 	http_streaming_chunk(cx, buffer_end, sizeof(buffer_end)-1);
 	http_streaming_end(cx);
-
 }
 
 
@@ -78,13 +77,18 @@ file_send_libjs(struct connection *cx) {
 Comet = {\n\
 	init: function(cbLoaded) {\n\
 		var iframe = document.createElement('iframe');\n\
-		iframe.src = 'http://' + comet_domain + '/iframe?domain=' + common_domain;\n\
 		iframe.setAttribute('style', 'display: none');\n\
 \n\
-		iframe.onload = function() {\n\
+		var f = function() {\n\
 			Comet.Client = function() { return new iframe.contentWindow.CometClient(comet_domain);};\n\
 			cbLoaded();\n\
 		};\n\
+		if(window.addEventListener) {\n\
+			window.addEventListener('load', f, false);\n\
+		} else if(window.attachEvent) {\n\
+			window.attachEvent('onload', f);\n\
+		}\n\
+		iframe.src = 'http://' + comet_domain + '/iframe?domain=' + common_domain;\n\
 		document.body.appendChild(iframe);\n\
 	}\n\
 };";
