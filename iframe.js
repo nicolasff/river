@@ -137,41 +137,51 @@ function CometClient(host){
 	this.streamingConnect = function(channel, onMsg) {
 
 		var comet = this;
-		comet.xhr = new XMLHttpRequest;
-		comet.pos = 0;
-		if(comet.canStream) {
-			comet.reconnectionTimeout = window.setTimeout(function() {comet.disconnect(); comet.connect(channel, onMsg);}, 25000);
+
+		if(comet.reconnectionTimer) {
+			window.clearTimeout(comet.reconnectionTimer);
 		}
 
-		var url = "http://"+this.host+"/subscribe?name="+channel+"&keep="+this.canStream;
+		// prepare XHR
+		var url = "http://"+this.host+"/subscribe";
+		var params = "name="+channel+"&keep="+this.canStream;
 		if(this.seq >= 0) {
-			url += "&seq="+this.seq;
+			params += "&seq="+this.seq;
 		}
-		comet.xhr.open("get", url, true);
-		comet.xhr.onreadystatechange = function() {
 
-			if(comet.xhr.readyState != 4 && comet.canStream == 0) {
+		comet.xhr = new XMLHttpRequest;
+		comet.pos = 0; /* counts how much we've parsed so far */
+		comet.xhr.open("POST", url, true);
+
+		comet.xhr.onreadystatechange = function() { /* callback for the reception of messages */
+
+			if(comet.xhr.readyState != 4 && comet.canStream == 0) { /* not a full message yet. probably going through states 1 & 2 */
 				return; // wait for state 4.
 			}
 
-			if(comet.xhr.readyState == 4 && comet.xhr.status != 200) { // error...
+			if(comet.xhr.readyState == 4 && comet.xhr.status != 200) { // error, reconnect
 				try {
-					window.setTimeout(function() {comet.connect(channel, onMsg);}, 1000); // reconnect soon.
+				comet.reconnectTimer = window.setTimeout(function() {
+					comet.connect(channel, onMsg);
+				}, 1000);
 				} catch(e) {}
 				return;
 			}
 
-			var data = comet.xhr.responseText;
-			if(comet.xhr.readyState === 3 || comet.xhr.readyState == 4) {
-				if(data.length == 0) {
+			if(comet.xhr.readyState === 3 || comet.xhr.readyState == 4) { // got data!
+
+				var data = comet.xhr.responseText;
+
+				if(data.length == 0) { // empty response, reconnect.
 					try {
-						window.setTimeout(function() {
+						comet.reconnectTimer = window.setTimeout(function() {
 							comet.connect(channel, onMsg);
 						}, 1000); // reconnect soon.
 					} catch(e) {}
 					return;
 				}
 
+				// try parsing message
 				do {
 					// this might only be the first part of our current packet.
 					var msg = cutMessage(data.substr(comet.pos));
@@ -196,35 +206,34 @@ function CometClient(host){
 								if(obj[1].channel == channel) {
 									if(onMsg) {
 										try {
+											console.log(obj[1]);
 											onMsg(obj[1]);
 										} catch(e) {} // ignore client errors
 									}
 								}
 								break;
 						}
-					} catch(e) { 
+					} catch(e) {
 						comet.xhr.abort(); // avoid duplicates upon reconnection
 						try{
-							window.setTimeout(function() {
+							comet.reconnectTimer = window.setTimeout(function() {
 								comet.connect(channel, onMsg);
 							}, 1000); // reconnect soon.
 						} catch(e) {}
 						return;
 					}
-					
 
 					if(comet.pos < data.length) {
 						break;
 					}
-					// there might be more in this event: consume the whole string.
 				} while(comet.pos < data.length);
-
+					// there might be more in this event: consume the whole string.
 			}
 			if(comet.xhr.readyState == 4) { // reconnect
 				// if no streaming capability, reconnect directly.
 				if(this.canStream) {
 					try {
-						window.setTimeout(function() {
+						comet.reconnectTimer = window.setTimeout(function() {
 							comet.connect(channel, onMsg);
 						}, 1000);
 					} catch(e) {}
@@ -233,8 +242,9 @@ function CometClient(host){
 					comet.connect(channel, onMsg);
 				}
 			}
-		};
-		comet.xhr.send(null);
+
+		}
+		comet.xhr.send(params);
 	}
 };
 
