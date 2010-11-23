@@ -135,16 +135,28 @@ send_empty_reply(struct connection *cx, int error) {
 /**
  * Copy the url
  */
-int
-http_parser_onurl(http_parser *parser, const char *at, size_t len) {
+static int
+http_parser_split_params(http_parser *parser, const char *at, size_t len, http_step step) {
 
 	struct connection *cx = parser->data;
 
-	const char *p = strchr(at, '?');
-	if(p) {
-		p++;
-	} else {
-		p = at;
+	const char *p;
+	switch(step) {
+		case ON_URL:
+			p = strchr(at, '?'); /* GET: start after page name */
+			if(p && p < at + len) {
+				p++;
+			} else {
+				return 0;
+			}
+			break;
+
+		case ON_BODY:		/* POST: read data directly */
+			p = at;
+			break;
+
+		default:
+			return -1;
 	}
 
 	/* memset(&cx->get, 0, sizeof(cx->get)); */
@@ -220,6 +232,17 @@ http_parser_onurl(http_parser *parser, const char *at, size_t len) {
 
 	return 0;
 }
+
+int
+http_parser_onurl(http_parser *parser, const char *at, size_t len) {
+	return http_parser_split_params(parser, at, len, ON_URL);
+}
+
+int
+http_parser_onbody(http_parser *parser, const char *at, size_t len) {
+	return http_parser_split_params(parser, at, len, ON_BODY);
+}
+
 
 /**
  * Copy the path

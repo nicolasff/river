@@ -5,6 +5,7 @@
 struct connection;
 
 typedef enum {HTTP_DISCONNECT, HTTP_KEEP_CONNECTED, HTTP_WEBSOCKET_MONITOR} http_action;
+typedef enum {ON_URL, ON_BODY} http_step;
 typedef int (*write_function)(struct connection *cx, const char *data, size_t len);
 typedef int (*start_function)(struct connection *cx);
 
@@ -37,6 +38,8 @@ http_streaming_end(struct connection *cx);
 
 int
 http_parser_onurl(http_parser *parser, const char *at, size_t len);
+int
+http_parser_onbody(http_parser *parser, const char *at, size_t len);
 
 int
 http_parser_onpath(http_parser *parser, const char *at, size_t len);

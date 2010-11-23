@@ -49,7 +49,7 @@ on_client_data(struct connection *cx) {
 	parser.flags = 0;
 	settings.on_path = http_parser_onpath;
 	settings.on_url = http_parser_onurl;
-	settings.on_body = http_parser_onurl;
+	settings.on_body = http_parser_onbody;
 	settings.on_header_field = http_parser_on_header_field;
 	settings.on_header_value = http_parser_on_header_value;
 
