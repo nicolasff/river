@@ -1,0 +1,13 @@
+Source: river
+Section: web
+Priority: optional
+Maintainer: Nicolas Favre-Felix <n.favrefelix@gmail.com>
+Build-Depends: debhelper (>= 7)
+Standards-Version: 3.8.0
+Homepage: http://github.com/nicolasff/river
+
+Package: river
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: 
+Description: Comet server with websocket support
