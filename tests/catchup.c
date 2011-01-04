@@ -170,7 +170,7 @@ main(int argc, char *argv[]) {
 
 	struct host_info hi;
 	hi.host = "127.0.0.1";
-	hi.port = 1234;
+	hi.port = 9271;
 
 	pthread_t reader_thread;
 	pthread_create(&reader_thread, NULL, reader_main, &hi);
