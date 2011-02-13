@@ -52,7 +52,8 @@ http_response_ct(struct connection *cx, int code, const char *status, const char
 		- (2 + 2 + 2 + 3) /* %d %s %s %lu*/
 		+ len;
 	buffer = rcalloc(sz + 1, 1);
-	ret = sprintf(buffer, template, code, status, content_type, len);
+	ret = sprintf(buffer, template, code, status, content_type,
+			(long unsigned int)len);
 	memcpy(buffer + ret, data, len);
 
 	ret = write(cx->fd, buffer, sz);

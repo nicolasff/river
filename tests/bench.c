@@ -216,7 +216,7 @@ main(int argc, char *argv[]) {
 
 	struct host_info hi;
 	hi.host = "127.0.0.1";
-	hi.port = 1234;
+	hi.port = 9271;
 
 	printf("Using %d channels.\n", channel_count);
 

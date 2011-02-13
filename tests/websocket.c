@@ -236,7 +236,7 @@ main(int argc, char *argv[]) {
 
 	int messages_default = 100000;
 	int thread_count_default = 4;
-	short port_default = 1234;
+	short port_default = 9271;
 	char *host_default = "127.0.0.1";
 
 	int msg_target = messages_default;
