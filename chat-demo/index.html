@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<title>River chat</title>
+
+		<script type="text/javascript" src="http://river.chat-demo.com:9271/lib.js?domain=chat-demo.com"></script>
+		<style type="text/css">
+
+			body {
+				background-color: #222;
+			}
+			div#page {
+				width: 1000px;
+				margin: auto;
+			}
+
+			div#chatLog {
+				width: 600px;
+				height: 400px;
+				background-color: beige;
+				border: none;
+			}
+		
+			input#msg {
+				width: 600px;
+				background-color: beige;
+				border: none;
+			}
+
+		</style>
+	</head>
+<body>
+	<script type="text/javascript">
+		document.domain = "chat-demo.com";
+
+		function onMsg(obj) {
+
+			var chatLog = document.getElementById("chatLog");
+			chatLog.innerHTML += obj.data + "<br>";
+		}
+
+		try {
+			Comet.init(function() {
+				c = new Comet.Client();
+				c.connect("chat-demo", onMsg, -1);
+			});
+		} catch(e) {
+			console.log(e);
+			alert("couldn't connect.");
+		}
+
+		function keyPress(e) {
+			if(e.keyCode != 13) {
+				return true;
+			}
+			// pressed enter
+			var input = document.getElementById("msg");
+			c.send("chat-demo", input.value);
+			input.value = "";
+			return true;
+		}
+
+	</script>
+	
+	<div id="page">
+		<div id="chatLog">
+		</div>
+		<input id="msg" type="text" onkeypress="return keyPress(event);" />
+	
+	 </div>
+</body>
+</html>
